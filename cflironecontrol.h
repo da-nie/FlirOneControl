@@ -19,6 +19,7 @@
 //класс управления Flir One
 class CFlirOneControl
 {
+ friend UINT ProcessingThread(LPVOID pParam);//поток обработки
  protected:
   //-Переменные класса-------------------------------------------------------    
   long Delay;//пауза для работы потока
@@ -44,19 +45,17 @@ class CFlirOneControl
   //-Функции класса----------------------------------------------------------
   bool Open(void);//подключиться к устройству
   void Close(void);//отключиться от устройства
-  bool Processing(void);//обработка (вызывается только потоком)
   bool LoadColorMap(char *filename);//загрузить карту перекодировки изображения
   bool CopyColorImage(unsigned long *image_ptr,unsigned long size,unsigned long &index);//скопировать раскрашенное изображение в буфер
   bool CopyThermalImage(unsigned short *image_ptr,unsigned long size,unsigned long &index);//скопировать тепловое изображение в буфер
   bool CopyVideoImage(unsigned long *image_ptr,unsigned long size,unsigned long &index);//скопировать изображение с видеокамеры в буфер
   bool CopyColorMap(unsigned char R[256],unsigned char G[256],unsigned char B[256],unsigned long size);//скопировать палитру
-
+ protected:
+  bool Processing(void);//обработка (вызывается только потоком)
   void AddLog(char *string);//добавить строку в log-файл
   void AddLog(long value);//добавить число в log-файл
   void StartThread(void);//запустить поток
   void StopThread(void);//остановить поток
 };
-
-UINT ProcessingThread(LPVOID pParam);//поток обработки
 
 #endif

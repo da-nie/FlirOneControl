@@ -40,6 +40,10 @@ CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(l
 
  LastReceivedFrameIndex=0;
 
+ cIImage_VideoPtr=new CPicture;
+ cIImage_VideoPtr->SetSize(VIDEO_WIDTH,VIDEO_HEIGHT);
+ cIImage_VideoPtr=new CDecorator_Scale(cIImage_VideoPtr,VIDEO_WIDTH,VIDEO_HEIGHT);
+
  cFlirOneControl.LoadColorMap("iron.pal");//загружаем палитру
 
  PlanckR1=16528.178;
@@ -60,6 +64,8 @@ CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(l
 //-Деструктор класса---------------------------------------------------------
 CDialog_Main::~CDialog_Main()
 {
+ delete(cIImage_VideoPtr);
+
  delete[](ViewImagePtr);
  delete[](SaveViewImagePtr);
  delete[](ColorImagePtr);
@@ -156,6 +162,8 @@ afx_msg void CDialog_Main::OnTimer(UINT nIDEvent)
   cFlirOneControl.CopyVideoImage(VideoImagePtr,VIDEO_IMAGE_SIZE_LONG,index);
   if (LastReceivedFrameIndex!=index)//изображение изменилось
   {
+   //копируем кадр видео   
+   cIImage_VideoPtr->SetRGBAImage(VIDEO_WIDTH,VIDEO_HEIGHT,vector<unsigned long>(VideoImagePtr,VideoImagePtr+VIDEO_IMAGE_SIZE_LONG-1));
    //копируем изображение
    unsigned long *v1_ptr=ViewImagePtr;
    unsigned long *v2_ptr=ColorImagePtr;
@@ -276,8 +284,8 @@ afx_msg void CDialog_Main::OnPaint(void)
  CRect cRect;
  ((CStatic *)GetDlgItem(IDC_STATIC_MAIN))->GetClientRect(&cRect);
  //выбираем максимальную сторону
- long width=cRect.right-cRect.left;
- long height=cRect.bottom-cRect.top;
+ unsigned long width=cRect.right-cRect.left;
+ unsigned long height=cRect.bottom-cRect.top;
  
  if (width<height) width=height*IMAGE_VIEW_WIDTH/IMAGE_VIEW_HEIGHT;
               else height=width*IMAGE_VIEW_HEIGHT/IMAGE_VIEW_WIDTH;
@@ -317,10 +325,14 @@ afx_msg void CDialog_Main::OnPaint(void)
               else height=width*VIDEO_HEIGHT/VIDEO_WIDTH;
  cRect.right=cRect.left+width;
  cRect.bottom=cRect.top+height; 
- 
+
+ vector<unsigned long> vector_video;
+ cIImage_VideoPtr->SetSize(width,height);
+ cIImage_VideoPtr->GetRGBAImage(width,height,vector_video);
+
  bmih.biSize=sizeof(BITMAPINFOHEADER);
- bmih.biWidth=VIDEO_WIDTH;
- bmih.biHeight=-VIDEO_HEIGHT;
+ bmih.biWidth=width;
+ bmih.biHeight=-height;
  bmih.biPlanes=1;
  bmih.biBitCount=32;
  bmih.biCompression=BI_RGB;
@@ -337,7 +349,7 @@ afx_msg void CDialog_Main::OnPaint(void)
  info.bmiHeader=bmih;
  info.bmiColors[0]=rgbq;
 
- StretchDIBits(cPaintDC_Video,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),VideoImagePtr,&info,DIB_RGB_COLORS,SRCCOPY);
+ StretchDIBits(cPaintDC_Video,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),&vector_video[0],&info,DIB_RGB_COLORS,SRCCOPY);
 
 }
 //---------------------------------------------------------------------------

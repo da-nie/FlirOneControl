@@ -52,37 +52,37 @@ END
 // Dialog
 //
 
-IDD_DIALOG_MAIN DIALOG DISCARDABLE  0, 0, 667, 261
+IDD_DIALOG_MAIN DIALOG DISCARDABLE  0, 0, 527, 335
 STYLE DS_MODALFRAME | WS_MINIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Управление Flir One"
 FONT 8, "MS Sans Serif"
 BEGIN
     GROUPBOX        "",IDC_STATIC_MAIN,5,5,305,250
-    PUSHBUTTON      "Сохранить кадр",IDC_BUTTON_MAIN_SAVE_FRAME,525,220,135,
-                    14
-    GROUPBOX        "Коэффициент излучения",IDC_STATIC,525,10,135,30,
+    PUSHBUTTON      "Сохранить кадр",IDC_BUTTON_MAIN_SAVE_FRAME,430,265,85,
+                    60
+    GROUPBOX        "Коэффициент излучения",IDC_STATIC,5,260,135,30,
                     BS_CENTER
-    EDITTEXT        IDC_EDIT_MAIN_EMISSION,531,21,125,14,ES_AUTOHSCROLL
-    GROUPBOX        "Температура болометров,C",IDC_STATIC,525,45,135,30,
+    EDITTEXT        IDC_EDIT_MAIN_EMISSION,11,271,125,14,ES_AUTOHSCROLL
+    GROUPBOX        "Температура болометров,C",IDC_STATIC,145,260,135,30,
                     BS_CENTER
-    EDITTEXT        IDC_EDIT_MAIN_TEMPERATURE,531,56,125,14,ES_AUTOHSCROLL
-    GROUPBOX        "Палитра",IDC_STATIC,525,80,134,50,BS_CENTER
-    COMBOBOX        IDC_COMBO_MAIN_PALETTE,531,90,125,104,CBS_DROPDOWNLIST | 
+    EDITTEXT        IDC_EDIT_MAIN_TEMPERATURE,151,271,125,14,ES_AUTOHSCROLL
+    GROUPBOX        "Палитра",IDC_STATIC,285,260,134,50,BS_CENTER
+    COMBOBOX        IDC_COMBO_MAIN_PALETTE,291,271,125,104,CBS_DROPDOWNLIST | 
                     WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      "Применить",IDC_BUTTON_MAIN_APPLY_PALETTE,531,110,125,14
+    PUSHBUTTON      "Применить",IDC_BUTTON_MAIN_APPLY_PALETTE,291,290,125,14
     CONTROL         "Сохранять все кадры",IDC_BUTTON_MAIN_SAVE_ALL_FRAME,
-                    "Button",BS_OWNERDRAW | WS_TABSTOP,525,240,135,14
+                    "Button",BS_OWNERDRAW | WS_TABSTOP,285,315,135,14
     CONTROL         "Сохранять изображение без шкалы",
                     IDC_BUTTON_MAIN_SAVE_IMAGE_NO_SCALE,"Button",
-                    BS_OWNERDRAW | WS_TABSTOP,525,135,135,14
+                    BS_OWNERDRAW | WS_TABSTOP,145,295,135,14
     CONTROL         "Рисовать перекрестье",IDC_BUTTON_MAIN_SAVE_IMAGE_CROSS,
-                    "Button",BS_OWNERDRAW | WS_TABSTOP,525,155,135,14
+                    "Button",BS_OWNERDRAW | WS_TABSTOP,145,315,135,14
     CONTROL         "Сохранять файл RAW",IDC_BUTTON_MAIN_SAVE_RAW,"Button",
-                    BS_OWNERDRAW | WS_TABSTOP,525,175,135,14
+                    BS_OWNERDRAW | WS_TABSTOP,5,315,135,14
     GROUPBOX        "",IDC_STATIC_VIDEO,320,5,200,250
     CONTROL         "Сохранять кадры с видеокамеры",
                     IDC_BUTTON_MAIN_SAVE_VIDEO,"Button",BS_OWNERDRAW | 
-                    WS_TABSTOP,525,195,135,14
+                    WS_TABSTOP,5,295,135,14
 END
 
 
@@ -97,9 +97,9 @@ BEGIN
     IDD_DIALOG_MAIN, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 660
+        RIGHTMARGIN, 520
         TOPMARGIN, 7
-        BOTTOMMARGIN, 254
+        BOTTOMMARGIN, 328
     END
 END
 #endif    // APSTUDIO_INVOKED

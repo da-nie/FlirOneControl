@@ -91,6 +91,14 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\cdecorator_ciimage.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\cdecorator_scale.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\cdialog_main.cpp
 # End Source File
 # Begin Source File
@@ -111,7 +119,15 @@ SOURCE=.\cgraphics.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\ciimage.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\colorbutton.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\cpicture.cpp
 # End Source File
 # Begin Source File
 
@@ -139,6 +155,14 @@ SOURCE=.\ccolorbutton.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\cdecorator_ciimage.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\cdecorator_scale.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\cdialog_main.h
 # End Source File
 # Begin Source File
@@ -156,6 +180,14 @@ SOURCE=.\cflironereceiver.h
 # Begin Source File
 
 SOURCE=.\cgraphics.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ciimage.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\cpicture.h
 # End Source File
 # Begin Source File
 

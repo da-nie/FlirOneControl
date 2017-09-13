@@ -8,6 +8,9 @@
 #include <vector>
 #include <string>
 
+#include "cpicture.h"
+#include "cdecorator_scale.h"
+
 using namespace std;
 
 //размер области измерения температуры
@@ -35,6 +38,7 @@ class CDialog_Main:public CDialog
 
   vector<string> vector_PaletteFileName;//список палитр
 
+  CIImage *cIImage_VideoPtr;//выводимый на экран кадр изображения с видеокамеры
 
   //параметры для расчёта температуры
   double PlanckR1;
