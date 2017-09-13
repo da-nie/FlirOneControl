@@ -39,6 +39,7 @@ class CDialog_Main:public CDialog
   vector<string> vector_PaletteFileName;//список палитр
 
   CIImage *cIImage_VideoPtr;//выводимый на экран кадр изображения с видеокамеры
+  CIImage *cIImage_ViewPtr;//выводимое на экран изображение
 
   //параметры для расчёта температуры
   double PlanckR1;

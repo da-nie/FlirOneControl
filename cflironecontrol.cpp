@@ -180,7 +180,6 @@ bool CFlirOneControl::CopyColorMap(unsigned char R[256],unsigned char G[256],uns
 //---------------------------------------------------------------------------
 UINT ProcessingThread(LPVOID pParam)
 {
- unsigned long delay=0;
  timeBeginPeriod(1); 
  CFlirOneControl *cFlirOneControl_Ptr=reinterpret_cast<CFlirOneControl *>(pParam); 
  while(1)

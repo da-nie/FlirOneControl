@@ -44,6 +44,10 @@ CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(l
  cIImage_VideoPtr->SetSize(VIDEO_WIDTH,VIDEO_HEIGHT);
  cIImage_VideoPtr=new CDecorator_Scale(cIImage_VideoPtr,VIDEO_WIDTH,VIDEO_HEIGHT);
 
+ cIImage_ViewPtr=new CPicture;
+ cIImage_ViewPtr->SetSize(IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
+ cIImage_ViewPtr=new CDecorator_Scale(cIImage_ViewPtr,IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
+
  cFlirOneControl.LoadColorMap("iron.pal");//загружаем палитру
 
  PlanckR1=16528.178;
@@ -145,7 +149,7 @@ afx_msg void CDialog_Main::OnTimer(UINT nIDEvent)
  long x;
  long y;
  if (nIDEvent==ID_TIMER_UPDATE) 
- {
+ { 
   //считываем температуру болометров и коэффициент излучения
   char string[255];
   ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_TEMPERATURE))->GetWindowText(string,255);
@@ -267,9 +271,11 @@ afx_msg void CDialog_Main::OnTimer(UINT nIDEvent)
    }
    if (SaveImageCross==true) memcpy(SaveViewImagePtr,ViewImagePtr,IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT*sizeof(unsigned long));
    if (SaveAllFrame==true) OnButton_SaveFrame();//сохраняем кадр
+   //копируем изображение
+   cIImage_ViewPtr->SetRGBAImage(IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT,vector<unsigned long>(ViewImagePtr,ViewImagePtr+IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT-1));
+   LastReceivedFrameIndex=index;
+   InvalidateRect(NULL,FALSE);
   }
-  LastReceivedFrameIndex=index;
-  InvalidateRect(NULL,FALSE);
  }
  CDialog::OnTimer(nIDEvent);
 }
@@ -325,6 +331,84 @@ afx_msg void CDialog_Main::OnPaint(void)
               else height=width*VIDEO_HEIGHT/VIDEO_WIDTH;
  cRect.right=cRect.left+width;
  cRect.bottom=cRect.top+height; 
+ 
+ bmih.biSize=sizeof(BITMAPINFOHEADER);
+ bmih.biWidth=VIDEO_WIDTH;
+ bmih.biHeight=-VIDEO_HEIGHT;
+ bmih.biPlanes=1;
+ bmih.biBitCount=32;
+ bmih.biCompression=BI_RGB;
+ bmih.biSizeImage=0;
+ bmih.biXPelsPerMeter=300;
+ bmih.biYPelsPerMeter=300;
+ bmih.biClrUsed=0;
+ bmih.biClrImportant=0;
+
+ rgbq.rgbBlue=1;
+ rgbq.rgbGreen=0;
+ rgbq.rgbRed=0;
+ rgbq.rgbReserved=0;
+ info.bmiHeader=bmih;
+ info.bmiColors[0]=rgbq;
+
+ StretchDIBits(cPaintDC_Video,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),VideoImagePtr,&info,DIB_RGB_COLORS,SRCCOPY);
+
+
+	/*
+ //со сглаживанием
+
+ CDialog::OnPaint();
+ CPaintDC cPaintDC_Main(((CStatic *)GetDlgItem(IDC_STATIC_MAIN)));
+ CPaintDC cPaintDC_Video(((CStatic *)GetDlgItem(IDC_STATIC_VIDEO)));
+ 
+ CRect cRect;
+ ((CStatic *)GetDlgItem(IDC_STATIC_MAIN))->GetClientRect(&cRect);
+ //выбираем максимальную сторону
+ unsigned long width=cRect.right-cRect.left;
+ unsigned long height=cRect.bottom-cRect.top;
+ 
+ if (width<height) width=height*IMAGE_VIEW_WIDTH/IMAGE_VIEW_HEIGHT;
+              else height=width*IMAGE_VIEW_HEIGHT/IMAGE_VIEW_WIDTH;
+
+ cRect.right=cRect.left+width;
+ cRect.bottom=cRect.top+height;
+
+ vector<unsigned long> vector_view;
+ cIImage_ViewPtr->SetSize(width,height);
+ cIImage_ViewPtr->GetRGBAImage(width,height,vector_view);
+ 
+ BITMAPINFOHEADER bmih;
+ bmih.biSize=sizeof(BITMAPINFOHEADER);
+ bmih.biWidth=width;
+ bmih.biHeight=-height;
+ bmih.biPlanes=1;
+ bmih.biBitCount=32;
+ bmih.biCompression=BI_RGB;
+ bmih.biSizeImage=0;
+ bmih.biXPelsPerMeter=300;
+ bmih.biYPelsPerMeter=300;
+ bmih.biClrUsed=0;
+ bmih.biClrImportant=0;
+ RGBQUAD rgbq;
+ BITMAPINFO info;
+ rgbq.rgbBlue=1;
+ rgbq.rgbGreen=0;
+ rgbq.rgbRed=0;
+ rgbq.rgbReserved=0;
+ info.bmiHeader=bmih;
+ info.bmiColors[0]=rgbq;
+
+ StretchDIBits(cPaintDC_Main,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),&vector_view[0],&info,DIB_RGB_COLORS,SRCCOPY);
+
+ ((CStatic *)GetDlgItem(IDC_STATIC_VIDEO))->GetClientRect(&cRect);
+ //выбираем максимальную сторону
+ width=cRect.right-cRect.left;
+ height=cRect.bottom-cRect.top;
+ 
+ if (width<height) width=height*VIDEO_WIDTH/VIDEO_HEIGHT;
+              else height=width*VIDEO_HEIGHT/VIDEO_WIDTH;
+ cRect.right=cRect.left+width;
+ cRect.bottom=cRect.top+height; 
 
  vector<unsigned long> vector_video;
  cIImage_VideoPtr->SetSize(width,height);
@@ -350,7 +434,7 @@ afx_msg void CDialog_Main::OnPaint(void)
  info.bmiColors[0]=rgbq;
 
  StretchDIBits(cPaintDC_Video,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),&vector_video[0],&info,DIB_RGB_COLORS,SRCCOPY);
-
+ */
 }
 //---------------------------------------------------------------------------
 //сохранить кадр

@@ -6,34 +6,60 @@
 --------------------Configuration: FlirOneControl - Win32 Release--------------------
 </h3>
 <h3>Command Lines</h3>
-Creating temporary file "C:\WINDOWS\TEMP\RSP524.tmp" with contents
+Creating command line "rc.exe /l 0x419 /fo"Release/Resource.res" /d "NDEBUG" /d "_AFXDLL" "E:\CopyToHome\FlirOneControl\Resource.rc"" 
+Creating temporary file "C:\WINDOWS\TEMP\RSP6B5.tmp" with contents
 [
 /nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_AFXDLL" /Fp"Release/FlirOneControl.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
-"E:\FlirOneControl\cdialog_main.cpp"
+"E:\CopyToHome\FlirOneControl\cdecorator_ciimage.cpp"
+"E:\CopyToHome\FlirOneControl\cdecorator_scale.cpp"
+"E:\CopyToHome\FlirOneControl\cdialog_main.cpp"
+"E:\CopyToHome\FlirOneControl\cflironecontrol.cpp"
+"E:\CopyToHome\FlirOneControl\cflironedriver.cpp"
+"E:\CopyToHome\FlirOneControl\cflironereceiver.cpp"
+"E:\CopyToHome\FlirOneControl\cgraphics.cpp"
+"E:\CopyToHome\FlirOneControl\ciimage.cpp"
+"E:\CopyToHome\FlirOneControl\colorbutton.cpp"
+"E:\CopyToHome\FlirOneControl\cpicture.cpp"
+"E:\CopyToHome\FlirOneControl\cringbuffer.cpp"
+"E:\CopyToHome\FlirOneControl\Main.cpp"
+"E:\CopyToHome\FlirOneControl\tga.cpp"
 ]
-Creating command line "cl.exe @C:\WINDOWS\TEMP\RSP524.tmp" 
-Creating temporary file "C:\WINDOWS\TEMP\RSP525.tmp" with contents
+Creating command line "cl.exe @C:\WINDOWS\TEMP\RSP6B5.tmp" 
+Creating temporary file "C:\WINDOWS\TEMP\RSP6B6.tmp" with contents
 [
 winmm.lib Setupapi.lib gdiplus.lib /nologo /subsystem:windows /incremental:no /pdb:"Release/FlirOneControl.pdb" /machine:I386 /out:"Release/FlirOneControl.exe" 
+.\Release\cdecorator_ciimage.obj
+.\Release\cdecorator_scale.obj
 .\Release\cdialog_main.obj
 .\Release\cflironecontrol.obj
 .\Release\cflironedriver.obj
 .\Release\cflironereceiver.obj
 .\Release\cgraphics.obj
+.\Release\ciimage.obj
 .\Release\colorbutton.obj
+.\Release\cpicture.obj
 .\Release\cringbuffer.obj
 .\Release\Main.obj
 .\Release\tga.obj
 .\Release\Resource.res
-.\Release\cdecorator_ciimage.obj
-.\Release\cdecorator_scale.obj
-.\Release\ciimage.obj
-.\Release\cpicture.obj
 ]
-Creating command line "link.exe @C:\WINDOWS\TEMP\RSP525.tmp"
+Creating command line "link.exe @C:\WINDOWS\TEMP\RSP6B6.tmp"
 <h3>Output Window</h3>
+Compiling resources...
 Compiling...
+cdecorator_ciimage.cpp
+cdecorator_scale.cpp
 cdialog_main.cpp
+cflironecontrol.cpp
+cflironedriver.cpp
+cflironereceiver.cpp
+cgraphics.cpp
+ciimage.cpp
+colorbutton.cpp
+cpicture.cpp
+cringbuffer.cpp
+Main.cpp
+tga.cpp
 Linking...
 
 
