@@ -66,6 +66,8 @@ class CDialog_Main:public CDialog
   CColorButton cColorButton_SaveVideo;//кнопка "сохранять кадры с видеокамеры"
   bool SaveVideo;//сохранять картинку с видеокамеры
 
+  CColorButton cColorButton_ShowVideo;//кнопка "показывать видео"
+  bool ShowVideo;//показывать видео
 
   //-Функции класса----------------------------------------------------------
   //-Прочее------------------------------------------------------------------
@@ -93,6 +95,7 @@ class CDialog_Main:public CDialog
   afx_msg void OnButton_SaveImageCross(void);//рисовать перекрестье
   afx_msg void OnButton_SaveRAW(void);//сохранять RAW
   afx_msg void OnButton_SaveVideo(void);//сохранять кадры с видеокамеры
+  afx_msg void OnButton_ShowVideo(void);//показывать видео
   afx_msg void OnButton_ApplyPalette(void);//применить палитру
  protected:
   //-Новые функции класса----------------------------------------------------  

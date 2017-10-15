@@ -13,6 +13,7 @@ BEGIN_MESSAGE_MAP(CDialog_Main,CDialog)
  ON_COMMAND(IDC_BUTTON_MAIN_SAVE_RAW,OnButton_SaveRAW)
  ON_COMMAND(IDC_BUTTON_MAIN_SAVE_VIDEO,OnButton_SaveVideo)
  ON_COMMAND(IDC_BUTTON_MAIN_APPLY_PALETTE,OnButton_ApplyPalette)
+ ON_COMMAND(IDC_BUTTON_MAIN_SHOW_VIDEO,OnButton_ShowVideo)
 END_MESSAGE_MAP()
 //- онструктор класса--------------------------------------------------------
 CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(lpszTemplateName,pParentWnd)
@@ -64,6 +65,9 @@ CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(l
  SaveImageCross=false;
  SaveRAW=false;
  SaveVideo=false;
+ ShowVideo=false;
+
+ cFlirOneControl.SetShowVideo(false);
 }
 //-ƒеструктор класса---------------------------------------------------------
 CDialog_Main::~CDialog_Main()
@@ -94,9 +98,13 @@ afx_msg BOOL CDialog_Main::OnInitDialog(void)
  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_EMISSION))->SetWindowText("0.95");
  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_TEMPERATURE))->SetLimitText(10);
  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_EMISSION))->SetLimitText(10);
- 
+
+  
  cColorButton_SaveAllFrame.Attach(IDC_BUTTON_MAIN_SAVE_ALL_FRAME,this);
  cColorButton_SaveAllFrame.SetBackGroundColor(RGB(192,192,192));
+
+ cColorButton_ShowVideo.Attach(IDC_BUTTON_MAIN_SHOW_VIDEO,this);
+ cColorButton_ShowVideo.SetBackGroundColor(RGB(192,192,192)); 
 
  cColorButton_SaveImageNoScale.Attach(IDC_BUTTON_MAIN_SAVE_IMAGE_NO_SCALE,this);
  cColorButton_SaveImageNoScale.SetBackGroundColor(RGB(192,192,192));
@@ -525,6 +533,23 @@ afx_msg void CDialog_Main::OnButton_SaveVideo(void)
   SaveVideo=true;
   cColorButton_SaveVideo.SetBackGroundColor(RGB(128,255,128));
  }
+}
+//---------------------------------------------------------------------------
+//сохран€ть кадры с видеокамеры
+//---------------------------------------------------------------------------
+afx_msg void CDialog_Main::OnButton_ShowVideo(void)
+{
+ if (ShowVideo==true) 
+ {
+  ShowVideo=false;
+  cColorButton_ShowVideo.SetBackGroundColor(RGB(192,192,192));
+ }
+ else
+ {
+  ShowVideo=true;
+  cColorButton_ShowVideo.SetBackGroundColor(RGB(128,255,128));
+ }
+ cFlirOneControl.SetShowVideo(ShowVideo);
 }
 //---------------------------------------------------------------------------
 //применить палитру

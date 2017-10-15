@@ -50,6 +50,7 @@ class CFlirOneControl
   bool CopyThermalImage(unsigned short *image_ptr,unsigned long size,unsigned long &index);//скопировать тепловое изображение в буфер
   bool CopyVideoImage(unsigned long *image_ptr,unsigned long size,unsigned long &index);//скопировать изображение с видеокамеры в буфер
   bool CopyColorMap(unsigned char R[256],unsigned char G[256],unsigned char B[256],unsigned long size);//скопировать палитру
+  void SetShowVideo(bool state);//показывать ли видео 
  protected:
   bool Processing(void);//обработка (вызывается только потоком)
   void AddLog(char *string);//добавить строку в log-файл

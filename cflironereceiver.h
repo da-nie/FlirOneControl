@@ -77,6 +77,8 @@ class CFlirOneReceiver
   vector<unsigned char> JPGImage;//пр€мые данные с видеокамеры (картинка в jpg)
 
   long FrameIndex;//номер текущего кадра
+
+  bool ShowVideo;//показывать ли видео
   //-‘ункции класса----------------------------------------------------------
   //-ѕрочее------------------------------------------------------------------
  public:
@@ -93,6 +95,7 @@ class CFlirOneReceiver
   bool CopyJPGImage(vector<unsigned char> &vector_jpg,unsigned long &index);//скопировать данные с видеокамеры в буфер
   bool CopyColorMap(unsigned char R[256],unsigned char G[256],unsigned char B[256],unsigned long size);//скопировать палитру
   bool CreateImage(unsigned char *buffer,unsigned long size);//создать изображение
+  void SetShowVideo(bool state);//показывать ли видео
   //-ѕрочее------------------------------------------------------------------
  private:
   void CalculateCRC(unsigned short &crc,unsigned char byte);//вычислить crc

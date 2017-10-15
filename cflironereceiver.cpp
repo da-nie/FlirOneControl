@@ -20,6 +20,8 @@ CFlirOneReceiver::CFlirOneReceiver(void)
  cRingBuffer_Ptr=new CRingBuffer(IMAGE_BUFFER_SIZE);
 
  FrameIndex=0;
+
+ ShowVideo=false;
 }
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //-Деструктор класса----------------------------------------------------------------------------------
@@ -178,7 +180,7 @@ bool CFlirOneReceiver::CreateImage(unsigned char *buffer,unsigned long size)
    break;
   }
  }
- if (enabled==true)
+ if (enabled==true && ShowVideo==true)
  {
   bool ok=true;	 
   for(unsigned long n=ORIGINAL_IMAGE_HEIGHT*(ORIGINAL_IMAGE_WIDTH+4)*2;n<sHeader.ThermalSize;n++)
@@ -191,7 +193,8 @@ bool CFlirOneReceiver::CreateImage(unsigned char *buffer,unsigned long size)
    }
   }  
   if (ok==true)
-  {
+  {   
+
    JPGImage.reserve(sHeader.JpgSize);
    //сохраняем jpg-картинку, для чего создаём поток
    IStream *pStream=NULL;
@@ -319,6 +322,7 @@ bool CFlirOneReceiver::CopyThermalImage(unsigned short *image_ptr,unsigned long 
 //----------------------------------------------------------------------------------------------------
 bool CFlirOneReceiver::CopyVideoImage(unsigned long *image_ptr,unsigned long size,unsigned long &index)
 {
+ if (ShowVideo==false) return(false);
  if (size<VIDEO_IMAGE_SIZE_LONG) return(false);//буфер слишком мал
  index=FrameIndex;
  memcpy(image_ptr,VideoImage,VIDEO_IMAGE_SIZE_LONG*sizeof(unsigned long));
@@ -329,6 +333,7 @@ bool CFlirOneReceiver::CopyVideoImage(unsigned long *image_ptr,unsigned long siz
 //----------------------------------------------------------------------------------------------------
 bool CFlirOneReceiver::CopyJPGImage(vector<unsigned char> &vector_jpg,unsigned long &index)
 {
+ if (ShowVideo==false) return(false);
  vector_jpg=JPGImage;
  index=FrameIndex;
  return(true); 
@@ -346,4 +351,11 @@ bool CFlirOneReceiver::CopyColorMap(unsigned char R[256],unsigned char G[256],un
   B[n]=ColorMap_B[n];
  }
  return(true);
+}
+//---------------------------------------------------------------------------
+//показывать ли видео
+//---------------------------------------------------------------------------
+void CFlirOneReceiver::SetShowVideo(bool state)
+{
+ ShowVideo=state;
 }

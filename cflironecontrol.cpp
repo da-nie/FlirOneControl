@@ -171,7 +171,16 @@ bool CFlirOneControl::CopyColorMap(unsigned char R[256],unsigned char G[256],uns
   return(sProtected.cFlirOneReceiver.CopyColorMap(R,G,B,size));
  }
 }
-
+//---------------------------------------------------------------------------
+//показывать ли видео
+//---------------------------------------------------------------------------
+void CFlirOneControl::SetShowVideo(bool state)
+{
+ CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+ {
+  sProtected.cFlirOneReceiver.SetShowVideo(state);
+ }
+}
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
