@@ -2,6 +2,8 @@
 #define CFLIRONEDRIVER_H
 
 #include "stdafx.h"
+#include <stdint.h>
+#include <vector>
 
 #include <setupapi.h>
 #include <basetyps.h>
@@ -20,17 +22,13 @@
 //запустить устройство FileIO
 #define IOCTL_FLIR_ONE_GEN2_FILEIO_START	8
 
-//размер буфера приёма данных
-#define RECEIVE_BUFFER_SIZE 1024*1024;
-
 //класс работы с драйверами Flir One
 class CFlirOneDriver
 {
+ static const size_t RECEIVE_BUFFER_SIZE=1048576;//размер буфера приёма данных
  protected:
   //-Переменные класса-------------------------------------------------------    
-  char *Data;//буфер приёма данных
-  unsigned long SizeOfData;//размер буфера приёма данных
-
+  std::vector<uint8_t> Data;//буфер приёма данных
 
   HANDLE hFile_FileIO;//интерфейс FileIO
   HANDLE hFile_Frame;//интерфейс Frame
@@ -57,8 +55,8 @@ class CFlirOneDriver
   bool Open(void);//подключиться к устройству
   void Close(void);//отключиться от устройства
   bool Processing(void);//обработка (вызывается только потоком)
-  bool SendControlCommand(unsigned long code);//отправить команду управления
-  bool ReadStream(unsigned char* &ptr,unsigned long &size);//чтение данных из устройств 
+  bool SendControlCommand(uint32_t code);//отправить команду управления
+  bool ReadStream(std::vector<uint8_t> &ret);//чтение данных из устройств 
  private:
   bool GetDevicePath(IN LPGUID InterfaceGuid,PCHAR DevicePath,size_t BufLen);//найти драйвер по GUID
 

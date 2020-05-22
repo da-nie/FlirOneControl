@@ -1,30 +1,41 @@
-#ifndef LOADTGA_H
-#define LOADTGA_H
+#ifndef TGA_H
+#define TGA_H
 
-#include <windows.h>
+//====================================================================================================
+//подключаемые библиотеки
+//====================================================================================================
+
 #include <stdio.h>
+#include <stdint.h>
+
+//====================================================================================================
+//структуры
+//====================================================================================================
 
 //заголовок TGA-файла
 #pragma pack(1)
 struct STGAHeader
 {
- char identsize;//размер поля ID заголовка (0)
- char colorMapType;//если ли палитра:0-нет,1-есть
- char imageType;//тип картинки:0-нет,1-индексные цвета,2-RGB,3-оттенки серого, (3-й бит - RLE- кодирование)
- unsigned short	colorMapStart;//начало карты цветов
- unsigned short	colorMapLength;//количество цветов в карте
- unsigned char 	colorMapBits;//размерность палитры
- unsigned short	xstart;//начальные координаты изображения
- unsigned short	ystart;                 
- unsigned short	width;//размер изображения по X
- unsigned short	height;//размер изображения по Y
- char bits;//количесто бит на пиксель (8,16,24,32)
- char descriptor;//дескриптор изрображения
+ uint8_t identsize;//размер поля заголовка
+ uint8_t colorMapType;//если ли палитра:0-нет,1-есть
+ uint8_t imageType;//тип картинки:0-нет,1-индексные цвета,2-RGB,3-оттенки серого, (3-й бит - RLE- кодирование)
+ uint16_t colorMapStart;//начало карты цветов
+ uint16_t colorMapLength;//количество цветов в карте
+ uint8_t colorMapBits;//размерность палитры
+ uint16_t xstart;//начальные координаты изображения
+ uint16_t ystart;
+ uint16_t width;//размер изображения по X
+ uint16_t height;//размер изображения по Y
+ uint8_t bits;//количесто бит на пиксель (8,16,24,32)
+ uint8_t descriptor;//дескриптор изрображения
 };
-#pragma pack(8)
+#pragma pack()
 
-unsigned char *LoadTGAFromFile(char *FileName,long &Width,long &Height);
-unsigned char *LoadTGAFromResource(HMODULE hModule,long ID,long &Width,long &Height);
-bool SaveTGA(char *FileName,long Width,long Height,unsigned char *Image);
+//====================================================================================================
+//прототипы функций
+//====================================================================================================
+
+uint8_t *LoadTGAFromFile(const char *file_name,int32_t &width,int32_t &height);//загрузить tga-файл
+bool SaveTGA(const char *file_name,int32_t width,int32_t height,uint8_t *image);//сохранить картинку в tga-файл
 
 #endif

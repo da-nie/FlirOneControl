@@ -1,51 +1,53 @@
+//****************************************************************************************************
+//подключаемые библиотеки
+//****************************************************************************************************
 #include "cflironecontrol.h"
+#include "craiicmutex.h"
+#include "system.h"
+#include "clog.h"
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//-Конструктор класса---------------------------------------------------------------------------------
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//****************************************************************************************************
+//глобальные переменные
+//****************************************************************************************************
+
+//****************************************************************************************************
+//константы
+//****************************************************************************************************
+
+//****************************************************************************************************
+//макроопределения
+//****************************************************************************************************
+
+//****************************************************************************************************
+//прототипы функций
+//****************************************************************************************************
+void* ThreadFunction(void *ptr);//поток обработки
+
+//****************************************************************************************************
+//конструктор и деструктор
+//****************************************************************************************************
+
+//----------------------------------------------------------------------------------------------------
+//конструктор
+//----------------------------------------------------------------------------------------------------
 CFlirOneControl::CFlirOneControl(void)
-{ 
+{
  Delay=1;
- cWinThread_ProcessingThread=NULL;
  //запускаем поток обработки
  StartThread();
 }
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//-Деструктор класса----------------------------------------------------------------------------------
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//----------------------------------------------------------------------------------------------------
+//деструктор
+//----------------------------------------------------------------------------------------------------
 CFlirOneControl::~CFlirOneControl()
 {
  StopThread();
  Close();
 }
-//-Функции класса------------------------------------------------------------
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//закрытые функции класса
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-//----------------------------------------------------------------------------------------------------
-//добавить строку в log-файл
-//----------------------------------------------------------------------------------------------------
-void CFlirOneControl::AddLog(char *string)
-{
- return;
- FILE *file=fopen("log.txt","ab");
- if (file==NULL) return;
- fprintf(file,"%s",string);
- fclose(file);
-}
-//----------------------------------------------------------------------------------------------------
-//добавить число в log-файл
-//----------------------------------------------------------------------------------------------------
-void CFlirOneControl::AddLog(long value)
-{
- return;
- FILE *file=fopen("log.txt","ab");
- if (file==NULL) return;
- fprintf(file,"%i",value);
- fclose(file);
-}
+//****************************************************************************************************
+//закрытые функции
+//****************************************************************************************************
 
 //---------------------------------------------------------------------------
 //запустить поток
@@ -54,29 +56,26 @@ void CFlirOneControl::StartThread(void)
 {
  StopThread();
  //запускаем поток обработки
- cEvent_Exit.ResetEvent();
- cWinThread_ProcessingThread=AfxBeginThread((AFX_THREADPROC)ProcessingThread,this);
- cWinThread_ProcessingThread->m_bAutoDelete=FALSE;
- SetThreadPriority(cWinThread_ProcessingThread->m_hThread,THREAD_PRIORITY_TIME_CRITICAL);
+ sProtected.ExitThread=false;
+ cThread_Processing.Create(ThreadFunction,this);
 }
 //---------------------------------------------------------------------------
 //остановить поток
 //---------------------------------------------------------------------------
 void CFlirOneControl::StopThread(void)
 {
- //завершаем поток обработки
- if (cWinThread_ProcessingThread!=NULL)
  {
-  cEvent_Exit.SetEvent();
-  if (cWinThread_ProcessingThread->m_hThread) WaitForSingleObject(cWinThread_ProcessingThread->m_hThread,INFINITE);
-  delete(cWinThread_ProcessingThread);
+  CRAIICMutex cRAIICMutex(&sProtected.cMutex);
+  {
+   sProtected.ExitThread=true;
+  }
  }
- cWinThread_ProcessingThread=NULL;
+ cThread_Processing.Join();
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//открытые функции класса
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//****************************************************************************************************
+//открытые функции
+//****************************************************************************************************
 
 //----------------------------------------------------------------------------------------------------
 //подключиться к устройству
@@ -98,22 +97,26 @@ void CFlirOneControl::Close(void)
 //----------------------------------------------------------------------------------------------------
 bool CFlirOneControl::Processing(void)
 {
- if (WaitForSingleObject(cEvent_Exit.m_hObject,Delay)==WAIT_OBJECT_0) return(false);//ждём события
- Delay=1;
- unsigned char *ptr;
- unsigned long size;
- if (cFlirOneDriver.ReadStream(ptr,size)==false)
+ {
+  CRAIICMutex cRAIICMutex(&sProtected.cMutex);
+  {
+   if (sProtected.ExitThread==true) return(false);//требуется завершение потока
+  }
+ }
+ PauseInMs(1);
+ Delay=1; 
+ if (cFlirOneDriver.ReadStream(ReceiveBuffer)==false)
  {
   Open();
   Delay=1000;
  }
  else
  {
-  CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+  CRAIICMutex cRAIICMutex(&sProtected.cMutex);
   {
-   if (size>0)
+   if (ReceiveBuffer.size()>0)
    {
-    sProtected.cFlirOneReceiver.CreateImage(ptr,size);
+    sProtected.cFlirOneReceiver.CreateImage(&ReceiveBuffer[0],ReceiveBuffer.size());
    }
   }
  }
@@ -123,9 +126,9 @@ bool CFlirOneControl::Processing(void)
 //----------------------------------------------------------------------------------------------------
 //загрузить карту перекодировки изображения
 //----------------------------------------------------------------------------------------------------
-bool CFlirOneControl::LoadColorMap(char *filename)
-{ 	
- CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+bool CFlirOneControl::LoadColorMap(const std::string &filename)
+{
+ CRAIICMutex cRAIICMutex(&sProtected.cMutex);
  {
   return(sProtected.cFlirOneReceiver.LoadColorMap(filename));
  }
@@ -134,49 +137,49 @@ bool CFlirOneControl::LoadColorMap(char *filename)
 //----------------------------------------------------------------------------------------------------
 //скопировать раскрашенное изображение в буфер
 //----------------------------------------------------------------------------------------------------
-bool CFlirOneControl::CopyColorImage(unsigned long *image_ptr,unsigned long size,unsigned long &index)
-{ 
- CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+bool CFlirOneControl::CopyColorImage(std::vector<uint32_t> &image,uint32_t &index)
+{
+ CRAIICMutex cRAIICMutex(&sProtected.cMutex);
  {
-  return(sProtected.cFlirOneReceiver.CopyColorImage(image_ptr,size,index));
+  return(sProtected.cFlirOneReceiver.CopyColorImage(image,index));
  }
 }
 //----------------------------------------------------------------------------------------------------
 //скопировать тепловое изображение в буфер
 //----------------------------------------------------------------------------------------------------
-bool CFlirOneControl::CopyThermalImage(unsigned short *image_ptr,unsigned long size,unsigned long &index)
-{ 
- CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+bool CFlirOneControl::CopyThermalImage(std::vector<uint16_t> &image,uint32_t &index)
+{
+ CRAIICMutex cRAIICMutex(&sProtected.cMutex);
  {
-  return(sProtected.cFlirOneReceiver.CopyThermalImage(image_ptr,size,index));
+  return(sProtected.cFlirOneReceiver.CopyThermalImage(image,index));
  }
 }
 //----------------------------------------------------------------------------------------------------
 //скопировать изображение с видеокамеры в буфер
 //----------------------------------------------------------------------------------------------------
-bool CFlirOneControl::CopyVideoImage(unsigned long *image_ptr,unsigned long size,unsigned long &index)
+bool CFlirOneControl::CopyVideoImage(std::vector<uint32_t> &image,uint32_t &index)
 {
- CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+ CRAIICMutex cRAIICMutex(&sProtected.cMutex);
  {
-  return(sProtected.cFlirOneReceiver.CopyVideoImage(image_ptr,size,index));
+  return(sProtected.cFlirOneReceiver.CopyVideoImage(image,index));
  }
 }
-//---------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
 //скопировать палитру
-//---------------------------------------------------------------------------
-bool CFlirOneControl::CopyColorMap(unsigned char R[256],unsigned char G[256],unsigned char B[256],unsigned long size)
+//----------------------------------------------------------------------------------------------------
+bool CFlirOneControl::CopyColorMap(uint8_t R[CFlirOneReceiver::COLOR_MAP_UNIT],uint8_t G[CFlirOneReceiver::COLOR_MAP_UNIT],uint8_t B[CFlirOneReceiver::COLOR_MAP_UNIT],uint32_t size)
 {
- CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+ CRAIICMutex cRAIICMutex(&sProtected.cMutex);
  {
   return(sProtected.cFlirOneReceiver.CopyColorMap(R,G,B,size));
  }
 }
-//---------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
 //показывать ли видео
-//---------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
 void CFlirOneControl::SetShowVideo(bool state)
 {
- CRAIICCriticalSection cRAIICCriticalSection(&sProtected.cCriticalSection);
+ CRAIICMutex cRAIICMutex(&sProtected.cMutex);
  {
   sProtected.cFlirOneReceiver.SetShowVideo(state);
  }
@@ -184,22 +187,15 @@ void CFlirOneControl::SetShowVideo(bool state)
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-//---------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
 //поток обработки
-//---------------------------------------------------------------------------
-UINT ProcessingThread(LPVOID pParam)
+//----------------------------------------------------------------------------------------------------
+void* ThreadFunction(void *ptr)
 {
- timeBeginPeriod(1); 
- CFlirOneControl *cFlirOneControl_Ptr=reinterpret_cast<CFlirOneControl *>(pParam); 
+ CFlirOneControl *cFlirOneControl_Ptr=reinterpret_cast<CFlirOneControl *>(ptr);
  while(1)
- {  
+ {
   if (cFlirOneControl_Ptr->Processing()==false) break;
  }
- timeEndPeriod(1);
- return(0);
+ return(NULL);
 }
-
-
-
-//-Прочее--------------------------------------------------------------------
-

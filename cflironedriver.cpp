@@ -36,8 +36,7 @@ CFlirOneDriver::CFlirOneDriver(void)
  Start_Frame=true;
  Start_iAP=true;
 
- SizeOfData=RECEIVE_BUFFER_SIZE;
- Data=new char[SizeOfData]; 
+ Data.resize(RECEIVE_BUFFER_SIZE);
 }
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //-Деструктор класса----------------------------------------------------------------------------------
@@ -47,7 +46,6 @@ CFlirOneDriver::~CFlirOneDriver()
  DeleteObject(Overlapped_Frame.hEvent);
  DeleteObject(Overlapped_FileIO.hEvent);
  DeleteObject(Overlapped_iAP.hEvent);
- delete[](Data);
 }
 //-Функции класса------------------------------------------------------------
 
@@ -120,11 +118,11 @@ bool CFlirOneDriver::GetDevicePath(IN LPGUID InterfaceGuid,PCHAR DevicePath,size
 //----------------------------------------------------------------------------------------------------
 //отправить команду управления
 //----------------------------------------------------------------------------------------------------
-bool CFlirOneDriver::SendControlCommand(unsigned long code)
+bool CFlirOneDriver::SendControlCommand(uint32_t code)
 {
- unsigned long nBytes;
+ DWORD nBytes;
  char buffer[256];
- unsigned long size=sizeof(buffer);  
+ uint32_t size=sizeof(buffer);  
  if (hFile_iAP==INVALID_HANDLE_VALUE) return(false);
  if (DeviceIoControl(hFile_iAP,code,buffer,size,buffer,size,(PULONG)&nBytes,NULL)==FALSE)
  {
@@ -151,18 +149,20 @@ bool CFlirOneDriver::SendControlCommand(unsigned long code)
 //----------------------------------------------------------------------------------------------------
 //чтение данных из устройств
 //----------------------------------------------------------------------------------------------------
-bool CFlirOneDriver::ReadStream(unsigned char* &ptr,unsigned long &size)
+bool CFlirOneDriver::ReadStream(std::vector<uint8_t> &ret)
 {
- ptr=NULL;
- size=0;
+ static const size_t BUFFER_SIZE=10000;
+ static uint8_t Buffer[BUFFER_SIZE];
+
+ ret.clear();
  if (hFile_FileIO==INVALID_HANDLE_VALUE) return(false);
  if (hFile_Frame==INVALID_HANDLE_VALUE) return(false);
  if (hFile_iAP==INVALID_HANDLE_VALUE) return(false);
- unsigned long readen; 
+ DWORD readen; 
  //ждём прихода данных
  if (Start_FileIO==true)//запускаем чтение
  {
-  if (ReadFile(hFile_FileIO,Data,SizeOfData,&readen,&Overlapped_FileIO)==FALSE)//ошибка
+  if (ReadFile(hFile_FileIO,Buffer,BUFFER_SIZE,&readen,&Overlapped_FileIO)==FALSE)//ошибка
   {   
    if (GetLastError()!=ERROR_IO_PENDING) 
    {
@@ -188,7 +188,7 @@ bool CFlirOneDriver::ReadStream(unsigned char* &ptr,unsigned long &size)
 
  if (Start_iAP==true)//запускаем чтение
  {
-  if (ReadFile(hFile_iAP,Data,SizeOfData,&readen,&Overlapped_iAP)==FALSE)//ошибка
+  if (ReadFile(hFile_iAP,Buffer,BUFFER_SIZE,&readen,&Overlapped_iAP)==FALSE)//ошибка
   {
    if (GetLastError()!=ERROR_IO_PENDING) 
    {
@@ -214,7 +214,7 @@ bool CFlirOneDriver::ReadStream(unsigned char* &ptr,unsigned long &size)
 
  if (Start_Frame==true)//запускаем чтение
  {
-  if (ReadFile(hFile_Frame,Data,SizeOfData,&readen,&Overlapped_Frame)==FALSE)//ошибка
+  if (ReadFile(hFile_Frame,&Data[0],Data.size(),&readen,&Overlapped_Frame)==FALSE)//ошибка
   {
    if (GetLastError()!=ERROR_IO_PENDING)
    {
@@ -233,8 +233,8 @@ bool CFlirOneDriver::ReadStream(unsigned char* &ptr,unsigned long &size)
    {
 	//AddLog("Frame data!\r\n");
     Start_Frame=true;//запускаем чтение сначала
-    ptr=(unsigned char*)Data;
-	size=readen;
+	ret.resize(readen);
+	for(size_t n=0;n<readen;n++) ret[n]=Data[n];
    }
    else return(false);
   }

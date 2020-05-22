@@ -1,103 +1,127 @@
-#ifndef CFLIRONERECEIVER_H
-#define CFLIRONERECEIVER_H
+#ifndef C_FLIR_ONE_RECEIVER_H
+#define C_FLIR_ONE_RECEIVER_H
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//****************************************************************************************************
+//Класс приёма данных от Flir One
+//****************************************************************************************************
+
+//****************************************************************************************************
 //подключаемые библиотеки
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#include "cringbuffer.h"
-#include "stdafx.h"
-
+//****************************************************************************************************
+#include <stdint.h>
 #include <vector>
+#include <string>
+#include <memory>
+#include "cringbuffer.h"
 
-using namespace std;
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//****************************************************************************************************
 //макроопределения
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//****************************************************************************************************
 
-//размер буфера приёма данных
-#define IMAGE_BUFFER_SIZE 1048576
+//****************************************************************************************************
+//константы
+//****************************************************************************************************
 
-//исходные размеры изображения (не перевёрнутые)
-#define ORIGINAL_IMAGE_WIDTH 160
-#define ORIGINAL_IMAGE_HEIGHT 120
+//****************************************************************************************************
+//предварительные объявления
+//****************************************************************************************************
 
-//исходные размеры видео (не перевёрнутые)
-#define ORIGINAL_VIDEO_WIDTH 640
-#define ORIGINAL_VIDEO_HEIGHT 480
-
-//размеры изображения после обработки и переворота в вертикальное положение
-#define IMAGE_WIDTH 120
-#define IMAGE_HEIGHT 160
-
-//размеры видео после обработки
-#define VIDEO_WIDTH 480
-#define VIDEO_HEIGHT 640
-
-//размер изображений
-#define THERMAL_IMAGE_SIZE_SHORT (IMAGE_WIDTH*IMAGE_HEIGHT)
-#define COLOR_IMAGE_SIZE_LONG (IMAGE_WIDTH*IMAGE_HEIGHT)
-#define VIDEO_IMAGE_SIZE_LONG (VIDEO_WIDTH*VIDEO_HEIGHT)
-
-//класс приёма данных от Flir One
+//****************************************************************************************************
+//Класс приёма данных от Flir One
+//****************************************************************************************************
 class CFlirOneReceiver
 {
+ public:
+  //-перечисления---------------------------------------------------------------------------------------
+  //-структуры------------------------------------------------------------------------------------------
+  //-константы------------------------------------------------------------------------------------------
+
+  //размер буфера приёма данных
+  static const int32_t IMAGE_BUFFER_SIZE=1048576;
+
+  //исходные размеры изображения (не перевёрнутые)
+  static const int32_t ORIGINAL_IMAGE_WIDTH=160;
+  static const int32_t ORIGINAL_IMAGE_HEIGHT=120;
+
+  //исходные размеры видео (не перевёрнутые)
+  static const int32_t ORIGINAL_VIDEO_WIDTH=640;
+  static const int32_t ORIGINAL_VIDEO_HEIGHT=480;
+
+  //размеры изображения после обработки и переворота в вертикальное положение
+  static const int32_t IMAGE_WIDTH=120;
+  static const int32_t IMAGE_HEIGHT=160;
+
+  //размеры видео после обработки
+  static const int32_t VIDEO_WIDTH=480;
+  static const int32_t VIDEO_HEIGHT=640;
+
+  //размер изображений
+  static const int32_t THERMAL_IMAGE_SIZE=(IMAGE_WIDTH*IMAGE_HEIGHT);
+  static const int32_t COLOR_IMAGE_SIZE=(IMAGE_WIDTH*IMAGE_HEIGHT);
+  static const int32_t VIDEO_IMAGE_SIZE=(VIDEO_WIDTH*VIDEO_HEIGHT);
+
+  static const int32_t COLOR_MAP_UNIT=256;//количество цветов в палитре
+  static const int32_t COLOR_SIZE=3;//число байт на один цвет (RGB)
+  static const int32_t MAX_COLOR_INDEX=(COLOR_MAP_UNIT-1);//максимальный индекс цвета
  private:
-  //-Переменные класса-------------------------------------------------------    
+  //-структуры------------------------------------------------------------------------------------------
+
+  #pragma pack(1)
   //заголовок кадра тепловизора
   struct SHeader
   {
-   unsigned char MagicByte[4];//магические байты
-   unsigned char Unknow1[4];//неизвестные данные
-   unsigned long FrameSize;//полный размер кадра
-   unsigned long ThermalSize;//размер кадра тепловизора
-   unsigned long JpgSize;//размер изображения с камеры
-   unsigned long StatusSize;//размер слова состояния 	 
-   unsigned char Unknow2[4];//неизвестные данные
+   uint8_t MagicByte[4];//магические байты
+   uint8_t Unknow1[4];//неизвестные данные
+   uint32_t FrameSize;//полный размер кадра
+   uint32_t ThermalSize;//размер кадра тепловизора
+   uint32_t JpgSize;//размер изображения с камеры
+   uint32_t StatusSize;//размер слова состояния
+   uint8_t Unknow2[4];//неизвестные данные
   };
   #pragma pack()
 
-  //палитра перекодировки изображения
-  unsigned char ColorMap_R[256];
-  unsigned char ColorMap_G[256];
-  unsigned char ColorMap_B[256];
+  //-переменные-----------------------------------------------------------------------------------------
 
-  CRingBuffer *cRingBuffer_Ptr;//кольцевой буфер приёма данных
+  //палитра перекодировки изображения
+  uint8_t ColorMap_R[COLOR_MAP_UNIT];
+  uint8_t ColorMap_G[COLOR_MAP_UNIT];
+  uint8_t ColorMap_B[COLOR_MAP_UNIT];
+
+  std::unique_ptr<CRingBuffer> cRingBuffer_Ptr;//кольцевой буфер приёма данных
 
   SHeader sHeader;//заголовок пакета
   bool HeaderIsReceived;//заголовок принят
 
-  unsigned char MagicPos;//позиция анализируемого магического байта
-  unsigned long MagicHeadPos;//позиция головы, когда встречился первый магический байт
+  uint8_t MagicPos;//позиция анализируемого магического байта
+  uint32_t MagicHeadPos;//позиция головы, когда встречился первый магический байт
 
-  unsigned short *ThermalImage;//тепловое изображение (raw14)
-  unsigned long *VideoImage;//изображение с видеокамеры
-  unsigned long *ColorImage;//раскрашенное изображение
+  std::vector<uint16_t> ThermalImage;//тепловое изображение (raw14)
+  std::vector<uint32_t> VideoImage;//изображение с видеокамеры
+  std::vector<uint32_t> ColorImage;//раскрашенное изображение
 
-  vector<unsigned char> JPGImage;//прямые данные с видеокамеры (картинка в jpg)
+  std::vector<uint8_t> JPGImage;//прямые данные с видеокамеры (картинка в jpg)
 
   long FrameIndex;//номер текущего кадра
 
   bool ShowVideo;//показывать ли видео
-  //-Функции класса----------------------------------------------------------
-  //-Прочее------------------------------------------------------------------
  public:
-  //-Конструктор класса------------------------------------------------------
+  //-конструктор----------------------------------------------------------------------------------------
   CFlirOneReceiver(void);
-  //-Деструктор класса-------------------------------------------------------
+  //-деструктор-----------------------------------------------------------------------------------------
   ~CFlirOneReceiver();
-  //-Переменные класса-------------------------------------------------------
-  //-Функции класса----------------------------------------------------------
-  bool LoadColorMap(char *filename);//загрузить карту перекодировки изображения
-  bool CopyColorImage(unsigned long *image_ptr,unsigned long size,unsigned long &index);//скопировать раскрашенное изображение в буфер
-  bool CopyThermalImage(unsigned short *image_ptr,unsigned long size,unsigned long &index);//скопировать тепловое изображение в буфер
-  bool CopyVideoImage(unsigned long *image_ptr,unsigned long size,unsigned long &index);//скопировать изображение с видеокамеры в буфер
-  bool CopyJPGImage(vector<unsigned char> &vector_jpg,unsigned long &index);//скопировать данные с видеокамеры в буфер
-  bool CopyColorMap(unsigned char R[256],unsigned char G[256],unsigned char B[256],unsigned long size);//скопировать палитру
-  bool CreateImage(unsigned char *buffer,unsigned long size);//создать изображение
+ public:
+  //-открытые функции-----------------------------------------------------------------------------------
+  bool LoadColorMap(const std::string &filename);//загрузить карту перекодировки изображения
+  bool CopyColorImage(std::vector<uint32_t> &image,uint32_t &index);//скопировать раскрашенное изображение в буфер
+  bool CopyThermalImage(std::vector<uint16_t> &image,uint32_t &index);//скопировать тепловое изображение в буфер
+  bool CopyVideoImage(std::vector<uint32_t> &image,uint32_t &index);//скопировать изображение с видеокамеры в буфер
+  bool CopyJPGImage(std::vector<uint8_t> &vector_jpg,uint32_t &index);//скопировать данные с видеокамеры в буфер
+  bool CopyColorMap(uint8_t R[COLOR_MAP_UNIT],uint8_t G[COLOR_MAP_UNIT],uint8_t B[COLOR_MAP_UNIT],uint32_t size);//скопировать палитру
+  bool CreateImage(uint8_t *buffer,uint32_t size);//создать изображение
   void SetShowVideo(bool state);//показывать ли видео
-  //-Прочее------------------------------------------------------------------
  private:
-  void CalculateCRC(unsigned short &crc,unsigned char byte);//вычислить crc
+  //-закрытые функции-----------------------------------------------------------------------------------  
+  void CalculateCRC(uint16_t &crc,uint8_t byte);//вычислить crc
 };
+
 #endif

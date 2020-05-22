@@ -1,4 +1,6 @@
 #include "cdialog_main.h"
+#include "system.h"
+#include "tga.h"
 
 //-Функции обработки сообщений класса----------------------------------------
 BEGIN_MESSAGE_MAP(CDialog_Main,CDialog)
@@ -18,38 +20,27 @@ END_MESSAGE_MAP()
 //-Конструктор класса--------------------------------------------------------
 CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(lpszTemplateName,pParentWnd)
 {
- long n;
- ViewImagePtr=new unsigned long[IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT];
- for(n=0;n<IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT;n++) ViewImagePtr[n]=0;
+ uint32_t color=COLOR_BLACK;
+ ViewImage.resize(IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT,color);
+ SaveViewImage.resize(IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT,color);
+ ColorImage.resize(CFlirOneReceiver::IMAGE_WIDTH*CFlirOneReceiver::IMAGE_HEIGHT,color);
+ VideoImage.resize(CFlirOneReceiver::VIDEO_WIDTH*CFlirOneReceiver::VIDEO_HEIGHT,color);
+ ThermalImage.resize(CFlirOneReceiver::IMAGE_WIDTH*CFlirOneReceiver::IMAGE_HEIGHT,0);
 
- SaveViewImagePtr=new unsigned long[IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT];
- for(n=0;n<IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT;n++) SaveViewImagePtr[n]=0;
-
- ColorImagePtr=new unsigned long[IMAGE_WIDTH*IMAGE_HEIGHT];
- for(n=0;n<IMAGE_WIDTH*IMAGE_HEIGHT;n++) ColorImagePtr[n]=0;
-
- VideoImagePtr=new unsigned long[VIDEO_WIDTH*VIDEO_HEIGHT];
- for(n=0;n<VIDEO_WIDTH*VIDEO_HEIGHT;n++) VideoImagePtr[n]=0;
-
- ThermalImagePtr=new unsigned short[IMAGE_WIDTH*IMAGE_HEIGHT];
- for(n=0;n<IMAGE_WIDTH*IMAGE_HEIGHT;n++)ThermalImagePtr[n]=0;
-
- TemperatureImagePtr=new float[IMAGE_WIDTH*IMAGE_HEIGHT];
- for(n=0;n<IMAGE_WIDTH*IMAGE_HEIGHT;n++)TemperatureImagePtr[n]=0;
-
- cGraphics.Init(ViewImagePtr,IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
+ TemperatureImage.resize(CFlirOneReceiver::IMAGE_WIDTH*CFlirOneReceiver::IMAGE_HEIGHT,0);
+ cGraphics.Init(&ViewImage[0],IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
 
  LastReceivedFrameIndex=0;
 
- cIImage_VideoPtr=new CPicture;
- cIImage_VideoPtr->SetSize(VIDEO_WIDTH,VIDEO_HEIGHT);
- cIImage_VideoPtr=new CDecorator_Scale(cIImage_VideoPtr,VIDEO_WIDTH,VIDEO_HEIGHT);
+ iImage_VideoPtr=new CPicture;
+ iImage_VideoPtr->SetSize(CFlirOneReceiver::VIDEO_WIDTH,CFlirOneReceiver::VIDEO_HEIGHT);
+ //iImage_VideoPtr=new CDecorator_Scale(iImage_VideoPtr,CFlirOneReceiver::VIDEO_WIDTH,CFlirOneReceiver::VIDEO_HEIGHT);
 
- cIImage_ViewPtr=new CPicture;
- cIImage_ViewPtr->SetSize(IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
- cIImage_ViewPtr=new CDecorator_Scale(cIImage_ViewPtr,IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
+ iImage_ViewPtr=new CPicture;
+ iImage_ViewPtr->SetSize(IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
+ //iImage_ViewPtr=new CDecorator_Scale(iImage_ViewPtr,IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT);
 
- cFlirOneControl.LoadColorMap("iron.pal");//загружаем палитру
+ cFlirOneControl.LoadColorMap(".\\Palette\\iron.pal");//загружаем палитру
 
  PlanckR1=16528.178;
  PlanckB=1427.5;
@@ -60,26 +51,14 @@ CDialog_Main::CDialog_Main(LPCTSTR lpszTemplateName, CWnd* pParentWnd):CDialog(l
  TempReflected=20;
  Emissivity=0.95;
 
- SaveAllFrame=false;
- SaveImageNoScale=false;
- SaveImageCross=false;
- SaveRAW=false;
- SaveVideo=false;
- ShowVideo=false;
-
- cFlirOneControl.SetShowVideo(false);
+ AlarmMaxTemperCounter=ALARM_MAX_TEMPER_COUNTER_MAX_VALUE;
+ AlarmMinTemperCounter=ALARM_MIN_TEMPER_COUNTER_MAX_VALUE;
 }
 //-Деструктор класса---------------------------------------------------------
 CDialog_Main::~CDialog_Main()
 {
- delete(cIImage_VideoPtr);
-
- delete[](ViewImagePtr);
- delete[](SaveViewImagePtr);
- delete[](ColorImagePtr);
- delete[](VideoImagePtr);
- delete[](ThermalImagePtr);
- delete[](TemperatureImagePtr);
+ delete(iImage_VideoPtr);
+ delete(iImage_ViewPtr);
 }
 //-Замещённые функции предка-------------------------------------------------
 afx_msg void CDialog_Main::OnOK(void)
@@ -99,7 +78,11 @@ afx_msg BOOL CDialog_Main::OnInitDialog(void)
  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_TEMPERATURE))->SetLimitText(10);
  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_EMISSION))->SetLimitText(10);
 
-  
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_MIN_T))->SetWindowText("-100");
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_MIN_T))->SetLimitText(10);
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_MAX_T))->SetWindowText("100");
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_MAX_T))->SetLimitText(10);
+   
  cColorButton_SaveAllFrame.Attach(IDC_BUTTON_MAIN_SAVE_ALL_FRAME,this);
  cColorButton_SaveAllFrame.SetBackGroundColor(RGB(192,192,192));
 
@@ -118,30 +101,17 @@ afx_msg BOOL CDialog_Main::OnInitDialog(void)
  cColorButton_SaveVideo.Attach(IDC_BUTTON_MAIN_SAVE_VIDEO,this);
  cColorButton_SaveVideo.SetBackGroundColor(RGB(192,192,192));
 
- //ищем палитры
- ((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->ResetContent();
- vector_PaletteFileName.clear();
- WIN32_FIND_DATA wfd;
- //сначала ищем файлы
- HANDLE Handle_Find=FindFirstFile("*.pal",&wfd);
- if (Handle_Find!=INVALID_HANDLE_VALUE)
- {
-  while(1)
-  {
-   //это файл
-   if (wfd.cFileName[0]!='.' && !(wfd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
-   {
-    //добавляем в список
-	((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->AddString(wfd.cFileName);
-	vector_PaletteFileName.push_back(string(wfd.cFileName));
-   }
-   if (FindNextFile(Handle_Find,&wfd)==FALSE) break;
-  }
-  FindClose(Handle_Find);
- }
- ((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->SetCurSel(0);
+ FindPalette();
 
- //подключим таймер
+ SetState(SaveAllFrame,cColorButton_SaveAllFrame,false);
+ SetState(SaveImageNoScale,cColorButton_SaveImageNoScale,false);
+ SetState(SaveImageCross,cColorButton_SaveImageCross,false);
+ SetState(SaveRAW,cColorButton_SaveRAW,true);
+ SetState(SaveVideo,cColorButton_SaveVideo,true);
+ SetState(ShowVideo,cColorButton_ShowVideo,true);
+ cFlirOneControl.SetShowVideo(ShowVideo);
+
+  //подключим таймер
  SetTimer(ID_TIMER_UPDATE,30,NULL);
  return(CDialog::OnInitDialog());
 }
@@ -154,133 +124,19 @@ afx_msg void CDialog_Main::OnDestroy(void)
 }
 afx_msg void CDialog_Main::OnTimer(UINT nIDEvent)
 {
- long x;
- long y;
  if (nIDEvent==ID_TIMER_UPDATE) 
- { 
-  //считываем температуру болометров и коэффициент излучения
-  char string[255];
-  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_TEMPERATURE))->GetWindowText(string,255);
-  TempReflected=atof(string);
-  ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_EMISSION))->GetWindowText(string,255);
-  Emissivity=atof(string);
+ {
   //копируем изображение
-  unsigned long index;
+  uint32_t index;
   //получаем тепловое изображение
-  cFlirOneControl.CopyThermalImage(ThermalImagePtr,THERMAL_IMAGE_SIZE_SHORT,index);
+  cFlirOneControl.CopyThermalImage(ThermalImage,index);
   //получаем раскрашенное изображение
-  cFlirOneControl.CopyColorImage(ColorImagePtr,COLOR_IMAGE_SIZE_LONG,index);
+  cFlirOneControl.CopyColorImage(ColorImage,index);
   //получаем видео изображение
-  cFlirOneControl.CopyVideoImage(VideoImagePtr,VIDEO_IMAGE_SIZE_LONG,index);
+  cFlirOneControl.CopyVideoImage(VideoImage,index);
   if (LastReceivedFrameIndex!=index)//изображение изменилось
-  {
-   //копируем кадр видео   
-   cIImage_VideoPtr->SetRGBAImage(VIDEO_WIDTH,VIDEO_HEIGHT,vector<unsigned long>(VideoImagePtr,VideoImagePtr+VIDEO_IMAGE_SIZE_LONG-1));
-   //копируем изображение
-   unsigned long *v1_ptr=ViewImagePtr;
-   unsigned long *v2_ptr=ColorImagePtr;
-   for(y=0;y<IMAGE_HEIGHT;y++,v1_ptr+=IMAGE_VIEW_WIDTH,v2_ptr+=IMAGE_WIDTH)
-   {
-    unsigned long *v1_ptr_local=v1_ptr;
-    unsigned long *v2_ptr_local=v2_ptr;
-    for(x=0;x<IMAGE_WIDTH;x++,v1_ptr_local++,v2_ptr_local++) *v1_ptr_local=*v2_ptr_local;
-   }
-   //очищаем места для максимальной и минимальной температуры
-   cGraphics.SolidFill(IMAGE_WIDTH+2,IMAGE_HEIGHT-FONT_HEIGHT*2-2-4,IMAGE_VIEW_WIDTH-(IMAGE_WIDTH+2),FONT_HEIGHT*2+4,0);
-   cGraphics.SolidFill(IMAGE_WIDTH+2,2,IMAGE_VIEW_WIDTH-(IMAGE_WIDTH+2),FONT_HEIGHT,0);
-   //рисуем градиентную шкалу
-   unsigned long scale_height=IMAGE_VIEW_HEIGHT-8-FONT_HEIGHT*3-4;
-   float c_index=255.0f;
-   float dc_index=255.0f/static_cast<float>(scale_height);
-   v1_ptr=ViewImagePtr+(4+FONT_HEIGHT)*IMAGE_VIEW_WIDTH+IMAGE_WIDTH+2;
-   unsigned char R[256];
-   unsigned char G[256];
-   unsigned char B[256];
-   cFlirOneControl.CopyColorMap(R,G,B,256);
-   for(y=0;y<scale_height;y++,v1_ptr+=IMAGE_VIEW_WIDTH,c_index-=dc_index)
-   {    
-	unsigned long index=static_cast<unsigned long>(c_index);
-	unsigned long color=0;
-    color|=0xff;
-	color<<=8;
-    color|=R[index];
-	color<<=8;
-    color|=G[index];
-	color<<=8;
-    color|=B[index];
-	unsigned long *v1_ptr_local=v1_ptr;
-    for(x=0;x<IMAGE_VIEW_WIDTH-IMAGE_WIDTH-4;x++,v1_ptr_local++) *v1_ptr_local=color;
-   }
-   //считаем температуру по кадру
-   char string[255];
-   double t_max=-10000;
-   double t_min=10000;
-   double t=0;
-   long point=0;//количество точек
-   unsigned short *t_ptr=ThermalImagePtr;
-   float *tmr_ptr=TemperatureImagePtr;
-   unsigned long *v_ptr=ViewImagePtr;
-   for(y=0;y<IMAGE_HEIGHT;y++,v_ptr+=IMAGE_VIEW_WIDTH)
-   {
-    unsigned long *v_ptr_local=v_ptr;
-    for(x=0;x<IMAGE_WIDTH;x++,t_ptr++,v_ptr_local++,tmr_ptr++)
-	{
-	 //вычисляем температуру
-     double pt;//температура в точке
-	 *tmr_ptr=-100000;
-	 if (GetTemperature(*t_ptr,pt)==false) continue;//ошибка вычисления температуры
-	 *tmr_ptr=pt;
-	 if (pt>t_max) t_max=pt;
-	 if (pt<t_min) t_min=pt;
-	 if (x>=IMAGE_WIDTH/2-FRAME_SIZE && x<=IMAGE_WIDTH/2+FRAME_SIZE)
-	 {
-      if (y>=IMAGE_HEIGHT/2-FRAME_SIZE && y<=IMAGE_HEIGHT/2+FRAME_SIZE)
-	  {
-       point++;
-	   t+=pt;
-	  }
-	 }
-	}
-   }
-   if (point!=0)
-   {
-    t/=static_cast<double>(point);
-    //выводим температуру
-	if (t>=-999 && t<=999)
-	{
-     sprintf(string,"%.1f!",t);
-	 cGraphics.PutString(IMAGE_WIDTH+2,IMAGE_VIEW_HEIGHT-FONT_HEIGHT-2,string,0xFFFFFF);
-	}
-   }
-   //выводим минимальную температуру
-   if (t_min>=-999 && t_min<=999)
-   {
-    sprintf(string,"%.1f!",t_min);
-    cGraphics.PutString(IMAGE_WIDTH+2,IMAGE_VIEW_HEIGHT-FONT_HEIGHT*2-2-4,string,0xFFFFFF);
-   }
-   //выводим максимальную температуру
-   if (t_max>=-999 && t_max<=999)
-   {
-    sprintf(string,"%.1f!",t_max);
- 	cGraphics.PutString(IMAGE_WIDTH+2,2,string,0xFFFFFF);
-   }
-   if (SaveImageCross==false) memcpy(SaveViewImagePtr,ViewImagePtr,IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT*sizeof(unsigned long));
-   //рисуем рамку
-   unsigned long *v_ptr_horizontal=ViewImagePtr+(IMAGE_VIEW_HEIGHT/2-FRAME_SIZE)*IMAGE_VIEW_WIDTH+IMAGE_WIDTH/2-FRAME_SIZE;
-   unsigned long *v_ptr_vertical=v_ptr_horizontal;
-   for(long n=0;n<=FRAME_SIZE*2;n++,v_ptr_horizontal++,v_ptr_vertical+=IMAGE_VIEW_WIDTH)
-   {
-    *v_ptr_horizontal^=0x00FFFFFF;
-    *(v_ptr_horizontal+FRAME_SIZE*2*IMAGE_VIEW_WIDTH)^=0x00FFFFFF;
-    if (v_ptr_horizontal==v_ptr_vertical) continue;
-	if (v_ptr_horizontal+FRAME_SIZE*2*IMAGE_VIEW_WIDTH==v_ptr_vertical+FRAME_SIZE*2) continue;
-    *v_ptr_vertical^=0x00FFFFFF;
-    *(v_ptr_vertical+FRAME_SIZE*2)^=0x00FFFFFF;
-   }
-   if (SaveImageCross==true) memcpy(SaveViewImagePtr,ViewImagePtr,IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT*sizeof(unsigned long));
-   if (SaveAllFrame==true) OnButton_SaveFrame();//сохраняем кадр
-   //копируем изображение
-   cIImage_ViewPtr->SetRGBAImage(IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT,vector<unsigned long>(ViewImagePtr,ViewImagePtr+IMAGE_VIEW_WIDTH*IMAGE_VIEW_HEIGHT-1));
+  { 
+   NewFrame();
    LastReceivedFrameIndex=index;
    InvalidateRect(NULL,FALSE);
   }
@@ -328,21 +184,21 @@ afx_msg void CDialog_Main::OnPaint(void)
  info.bmiHeader=bmih;
  info.bmiColors[0]=rgbq;
 
- StretchDIBits(cPaintDC_Main,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),ViewImagePtr,&info,DIB_RGB_COLORS,SRCCOPY);
+ StretchDIBits(cPaintDC_Main,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),&ViewImage[0],&info,DIB_RGB_COLORS,SRCCOPY);
 
  ((CStatic *)GetDlgItem(IDC_STATIC_VIDEO))->GetClientRect(&cRect);
  //выбираем максимальную сторону
  width=cRect.right-cRect.left;
  height=cRect.bottom-cRect.top;
  
- if (width<height) width=height*VIDEO_WIDTH/VIDEO_HEIGHT;
-              else height=width*VIDEO_HEIGHT/VIDEO_WIDTH;
+ if (width<height) width=height*CFlirOneReceiver::VIDEO_WIDTH/CFlirOneReceiver::VIDEO_HEIGHT;
+              else height=width*CFlirOneReceiver::VIDEO_HEIGHT/CFlirOneReceiver::VIDEO_WIDTH;
  cRect.right=cRect.left+width;
  cRect.bottom=cRect.top+height; 
  
  bmih.biSize=sizeof(BITMAPINFOHEADER);
- bmih.biWidth=VIDEO_WIDTH;
- bmih.biHeight=-VIDEO_HEIGHT;
+ bmih.biWidth=CFlirOneReceiver::VIDEO_WIDTH;
+ bmih.biHeight=-CFlirOneReceiver::VIDEO_HEIGHT;
  bmih.biPlanes=1;
  bmih.biBitCount=32;
  bmih.biCompression=BI_RGB;
@@ -359,7 +215,7 @@ afx_msg void CDialog_Main::OnPaint(void)
  info.bmiHeader=bmih;
  info.bmiColors[0]=rgbq;
 
- StretchDIBits(cPaintDC_Video,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),VideoImagePtr,&info,DIB_RGB_COLORS,SRCCOPY);
+ StretchDIBits(cPaintDC_Video,cRect.left,cRect.top,cRect.right-cRect.left,cRect.bottom-cRect.top,0,0,abs(bmih.biWidth),abs(bmih.biHeight),&VideoImage[0],&info,DIB_RGB_COLORS,SRCCOPY);
 
 
 	/*
@@ -458,64 +314,28 @@ afx_msg void CDialog_Main::OnButton_SaveFrame(void)
 //---------------------------------------------------------------------------
 afx_msg void CDialog_Main::OnButton_SaveAllFrame(void)
 {
- if (SaveAllFrame==true) 
- {
-  SaveAllFrame=false;
-  cColorButton_SaveAllFrame.SetBackGroundColor(RGB(192,192,192));
- }
- else
- {
-  SaveAllFrame=true;
-  cColorButton_SaveAllFrame.SetBackGroundColor(RGB(128,255,128));
- }
+ ChangeState(SaveAllFrame,cColorButton_SaveAllFrame);
 }
 //---------------------------------------------------------------------------
 //сохранять изображения без шкалы
 //---------------------------------------------------------------------------
 afx_msg void CDialog_Main::OnButton_SaveImageNoScale(void)
 {
- if (SaveImageNoScale==true) 
- {
-  SaveImageNoScale=false;
-  cColorButton_SaveImageNoScale.SetBackGroundColor(RGB(192,192,192));
- }
- else
- {
-  SaveImageNoScale=true;
-  cColorButton_SaveImageNoScale.SetBackGroundColor(RGB(128,255,128));
- }
+ ChangeState(SaveImageNoScale,cColorButton_SaveImageNoScale);
 }
 //---------------------------------------------------------------------------
 //рисовать перекрестье
 //---------------------------------------------------------------------------
 afx_msg void CDialog_Main::OnButton_SaveImageCross(void)
 {
- if (SaveImageCross==true) 
- {
-  SaveImageCross=false;
-  cColorButton_SaveImageCross.SetBackGroundColor(RGB(192,192,192));
- }
- else
- {
-  SaveImageCross=true;
-  cColorButton_SaveImageCross.SetBackGroundColor(RGB(128,255,128));
- }
+ ChangeState(SaveImageCross,cColorButton_SaveImageCross);
 }
 //---------------------------------------------------------------------------
 //сохранять RAW
 //---------------------------------------------------------------------------
 afx_msg void CDialog_Main::OnButton_SaveRAW(void)
 {
- if (SaveRAW==true) 
- {
-  SaveRAW=false;
-  cColorButton_SaveRAW.SetBackGroundColor(RGB(192,192,192));
- }
- else
- {
-  SaveRAW=true;
-  cColorButton_SaveRAW.SetBackGroundColor(RGB(128,255,128));
- }
+ ChangeState(SaveRAW,cColorButton_SaveRAW);
 }
 
 //---------------------------------------------------------------------------
@@ -523,32 +343,14 @@ afx_msg void CDialog_Main::OnButton_SaveRAW(void)
 //---------------------------------------------------------------------------
 afx_msg void CDialog_Main::OnButton_SaveVideo(void)
 {
- if (SaveVideo==true) 
- {
-  SaveVideo=false;
-  cColorButton_SaveVideo.SetBackGroundColor(RGB(192,192,192));
- }
- else
- {
-  SaveVideo=true;
-  cColorButton_SaveVideo.SetBackGroundColor(RGB(128,255,128));
- }
+ ChangeState(SaveVideo,cColorButton_SaveVideo);
 }
 //---------------------------------------------------------------------------
 //сохранять кадры с видеокамеры
 //---------------------------------------------------------------------------
 afx_msg void CDialog_Main::OnButton_ShowVideo(void)
 {
- if (ShowVideo==true) 
- {
-  ShowVideo=false;
-  cColorButton_ShowVideo.SetBackGroundColor(RGB(192,192,192));
- }
- else
- {
-  ShowVideo=true;
-  cColorButton_ShowVideo.SetBackGroundColor(RGB(128,255,128));
- }
+ ChangeState(ShowVideo,cColorButton_ShowVideo);
  cFlirOneControl.SetShowVideo(ShowVideo);
 }
 //---------------------------------------------------------------------------
@@ -559,6 +361,227 @@ afx_msg void CDialog_Main::OnButton_ApplyPalette(void)
  long index=((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->GetCurSel();
  if (vector_PaletteFileName.size()<=index) return;
  cFlirOneControl.LoadColorMap(const_cast<char*>(vector_PaletteFileName[index].c_str())); 
+}
+
+
+//----------------------------------------------------------------------------------------------------
+//новый кадр
+//----------------------------------------------------------------------------------------------------
+void CDialog_Main::NewFrame(void)
+{
+ static const float T_MAX_INITIAL_VALUE=-10000;//начальное значение для максимальной температуры
+ static const float T_MIN_INITIAL_VALUE=10000;//начальное значение для минимальной температуры
+ static const float T_MIN_VALID_VALUE=-999;//минимальное допустимое значение температуры
+ static const float T_MAX_VALID_VALUE=999;//максимальное допустимое значение температуры
+
+ //считываем температуру болометров и коэффициент излучения
+ char string[STRING_BUFFER_SIZE];
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_TEMPERATURE))->GetWindowText(string,STRING_BUFFER_SIZE);
+ TempReflected=atof(string);
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_EMISSION))->GetWindowText(string,STRING_BUFFER_SIZE);
+ Emissivity=atof(string);
+
+ //копируем кадр видео
+ iImage_VideoPtr->SetRGBAImage(CFlirOneReceiver::VIDEO_WIDTH,CFlirOneReceiver::VIDEO_HEIGHT,VideoImage);
+ //копируем изображение
+ uint32_t *v1_ptr=&ViewImage[0];
+ uint32_t *v2_ptr=&ColorImage[0];
+ for(int32_t y=0;y<CFlirOneReceiver::IMAGE_HEIGHT;y++,v1_ptr+=IMAGE_VIEW_WIDTH,v2_ptr+=CFlirOneReceiver::IMAGE_WIDTH)
+ {
+  uint32_t *v1_ptr_local=v1_ptr;
+  uint32_t *v2_ptr_local=v2_ptr;
+  for(int32_t x=0;x<CFlirOneReceiver::IMAGE_WIDTH;x++,v1_ptr_local++,v2_ptr_local++) *v1_ptr_local=*v2_ptr_local;
+ }
+ //очищаем места для максимальной и минимальной температуры
+ cGraphics.SolidFill(CFlirOneReceiver::IMAGE_WIDTH+2,CFlirOneReceiver::IMAGE_HEIGHT-CGraphics::FONT_HEIGHT*2-2-4,IMAGE_VIEW_WIDTH-(CFlirOneReceiver::IMAGE_WIDTH+2),CGraphics::FONT_HEIGHT*2+4,COLOR_BLACK);
+ cGraphics.SolidFill(CFlirOneReceiver::IMAGE_WIDTH+2,2,IMAGE_VIEW_WIDTH-(CFlirOneReceiver::IMAGE_WIDTH+2),CGraphics::FONT_HEIGHT,COLOR_BLACK);
+ //рисуем градиентную шкалу
+ uint32_t scale_height=IMAGE_VIEW_HEIGHT-8-CGraphics::FONT_HEIGHT*3-4;
+ float c_index=CFlirOneReceiver::MAX_COLOR_INDEX;
+ float dc_index=static_cast<float>(CFlirOneReceiver::MAX_COLOR_INDEX)/static_cast<float>(scale_height);
+ v1_ptr=&ViewImage[0]+(4+CGraphics::FONT_HEIGHT)*IMAGE_VIEW_WIDTH+CFlirOneReceiver::IMAGE_WIDTH+2;
+ uint8_t R[CFlirOneReceiver::COLOR_MAP_UNIT];
+ uint8_t G[CFlirOneReceiver::COLOR_MAP_UNIT];
+ uint8_t B[CFlirOneReceiver::COLOR_MAP_UNIT];
+ cFlirOneControl.CopyColorMap(R,G,B,CFlirOneReceiver::COLOR_MAP_UNIT);
+ for(int32_t y=0;y<scale_height;y++,v1_ptr+=IMAGE_VIEW_WIDTH,c_index-=dc_index)
+ {
+  uint32_t index=static_cast<uint32_t>(c_index);
+  uint32_t color=0;
+  color|=0xff;
+  color<<=8;
+  color|=R[index];
+  color<<=8;
+  color|=G[index];
+  color<<=8;
+  color|=B[index];
+  uint32_t *v1_ptr_local=v1_ptr;
+  for(int32_t x=0;x<IMAGE_VIEW_WIDTH-CFlirOneReceiver::IMAGE_WIDTH-4;x++,v1_ptr_local++) *v1_ptr_local=color;
+ }
+ //считаем температуру по кадру 
+ double t_max=T_MAX_INITIAL_VALUE;
+ double t_min=T_MIN_INITIAL_VALUE;
+ double t=0;
+ long point=0;//количество точек
+ uint16_t *t_ptr=&ThermalImage[0];
+ float *tmr_ptr=&TemperatureImage[0];
+ uint32_t *v_ptr=&ViewImage[0];
+ for(int32_t y=0;y<CFlirOneReceiver::IMAGE_HEIGHT;y++,v_ptr+=IMAGE_VIEW_WIDTH)
+ {
+  uint32_t *v_ptr_local=v_ptr;
+  for(int32_t x=0;x<CFlirOneReceiver::IMAGE_WIDTH;x++,t_ptr++,v_ptr_local++,tmr_ptr++)
+  {
+   //вычисляем температуру
+   double pt;//температура в точке
+   *tmr_ptr=T_MAX_INITIAL_VALUE;
+   if (GetTemperature(*t_ptr,pt)==false) continue;//ошибка вычисления температуры
+   *tmr_ptr=pt;
+   if (pt>t_max) t_max=pt;
+   if (pt<t_min) t_min=pt;
+   if (x>=CFlirOneReceiver::IMAGE_WIDTH/2-FRAME_SIZE && x<=CFlirOneReceiver::IMAGE_WIDTH/2+FRAME_SIZE)
+   {
+    if (y>=CFlirOneReceiver::IMAGE_HEIGHT/2-FRAME_SIZE && y<=CFlirOneReceiver::IMAGE_HEIGHT/2+FRAME_SIZE)
+    {
+     point++;
+     t+=pt;
+    }
+   }
+  }
+ }
+ if (point!=0)
+ {
+  t/=static_cast<double>(point);
+  //выводим температуру
+  if (t>=T_MIN_VALID_VALUE && t<=T_MAX_VALID_VALUE)
+  {
+   sprintf(string,"%.1f!",t);
+   cGraphics.PutString(CFlirOneReceiver::IMAGE_WIDTH+2,IMAGE_VIEW_HEIGHT-CGraphics::FONT_HEIGHT-2,string,COLOR_WHITE);
+  }
+ }
+ bool alarm_save_frame=false;
+ //выводим минимальную температуру
+ if (t_min>=T_MIN_VALID_VALUE && t_min<=T_MAX_VALID_VALUE)
+ {
+  sprintf(string,"%.1f!",t_min);
+  cGraphics.PutString(CFlirOneReceiver::IMAGE_WIDTH+2,IMAGE_VIEW_HEIGHT-CGraphics::FONT_HEIGHT*2-2-4,string,COLOR_WHITE);
+  if (MinTemperControl(t_min)==true)
+  {
+   if (AlarmMinTemperCounter>0) AlarmMinTemperCounter--;
+   if (AlarmMinTemperCounter==0)
+   {	 
+    if (((CButton *)GetDlgItem(IDC_CHECK_MAIN_ALARM_SAVE_FRAME))->GetCheck()==TRUE) alarm_save_frame=true;
+   }
+  }
+  else AlarmMinTemperCounter=ALARM_MIN_TEMPER_COUNTER_MAX_VALUE;
+ }
+ //выводим максимальную температуру
+ if (t_max>=T_MIN_VALID_VALUE && t_max<=T_MAX_VALID_VALUE)
+ {
+  sprintf(string,"%.1f!",t_max);
+  cGraphics.PutString(CFlirOneReceiver::IMAGE_WIDTH+2,2,string,COLOR_WHITE);
+  if (MaxTemperControl(t_max)==true)
+  {
+   if (AlarmMaxTemperCounter>0) AlarmMaxTemperCounter--;
+   if (AlarmMaxTemperCounter==0)
+   {
+    if (((CButton *)GetDlgItem(IDC_CHECK_MAIN_ALARM_SAVE_FRAME))->GetCheck()==TRUE) alarm_save_frame=true;
+   }
+  }
+  else AlarmMaxTemperCounter=ALARM_MAX_TEMPER_COUNTER_MAX_VALUE;
+ }
+ if (SaveImageCross==false) SaveViewImage=ViewImage;
+ //рисуем рамку
+ uint32_t *v_ptr_horizontal=&ViewImage[0]+(IMAGE_VIEW_HEIGHT/2-FRAME_SIZE)*IMAGE_VIEW_WIDTH+CFlirOneReceiver::IMAGE_WIDTH/2-FRAME_SIZE;
+ uint32_t *v_ptr_vertical=v_ptr_horizontal;
+ for(int32_t n=0;n<=FRAME_SIZE*2;n++,v_ptr_horizontal++,v_ptr_vertical+=IMAGE_VIEW_WIDTH)
+ {
+  *v_ptr_horizontal^=COLOR_WHITE;
+  *(v_ptr_horizontal+FRAME_SIZE*2*IMAGE_VIEW_WIDTH)^=COLOR_WHITE;
+  if (v_ptr_horizontal==v_ptr_vertical) continue;
+  if (v_ptr_horizontal+FRAME_SIZE*2*IMAGE_VIEW_WIDTH==v_ptr_vertical+FRAME_SIZE*2) continue;
+  *v_ptr_vertical^=COLOR_WHITE;
+  *(v_ptr_vertical+FRAME_SIZE*2)^=COLOR_WHITE;
+ }
+ if (SaveImageCross==true) SaveViewImage=ViewImage;
+ if (SaveAllFrame==true || alarm_save_frame==true)  OnButton_SaveFrame();//сохраняем кадр
+ //копируем изображение
+ iImage_ViewPtr->SetRGBAImage(IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT,ViewImage);
+}
+
+
+//----------------------------------------------------------------------------------------------------
+//контроль минимальной температуры
+//----------------------------------------------------------------------------------------------------
+bool CDialog_Main::MinTemperControl(float t)
+{
+ char string[STRING_BUFFER_SIZE];
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_MIN_T))->GetWindowText(string,STRING_BUFFER_SIZE);
+ float min_t=atof(string);
+ if (t<=min_t) return(true);
+ return(false);
+}
+//----------------------------------------------------------------------------------------------------
+//контроль максимальной температуры
+//----------------------------------------------------------------------------------------------------
+bool CDialog_Main::MaxTemperControl(float t)
+{
+ char string[STRING_BUFFER_SIZE];
+ ((CEdit *)GetDlgItem(IDC_EDIT_MAIN_MAX_T))->GetWindowText(string,STRING_BUFFER_SIZE);
+ float max_t=atof(string);
+ if (t>=max_t) return(true);
+ return(false);
+}
+//----------------------------------------------------------------------------------------------------
+//поиск палитр
+//----------------------------------------------------------------------------------------------------
+void CDialog_Main::FindPalette(void)
+{
+ ((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->ResetContent(); 
+ std::vector<std::string> vector_file_name;
+ std::vector<std::string> vector_file_name_without_path;
+ CreateFileList("./Palette",vector_file_name,vector_file_name_without_path);
+ vector_PaletteFileName.clear();
+ static const size_t MIN_FILE_NAME_SIZE=4;//минимальная длина имени файла
+ for(size_t n=0;n<vector_file_name.size();n++)
+ {
+  std::string &file_name=vector_file_name[n];
+  size_t length=file_name.length();
+  if (length<MIN_FILE_NAME_SIZE) continue;
+  if (file_name[length-1]!='l' && file_name[length-1]!='L') continue;
+  if (file_name[length-2]!='a' && file_name[length-1]!='A') continue;
+  if (file_name[length-3]!='p' && file_name[length-1]!='P') continue;
+  if (file_name[length-4]!='.') continue;
+  vector_PaletteFileName.push_back(file_name);
+  ((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->AddString(vector_file_name_without_path[n].c_str());
+ }
+ if (vector_file_name.size()>0) ((CComboBox *)GetDlgItem(IDC_COMBO_MAIN_PALETTE))->SetCurSel(0);
+}
+
+//----------------------------------------------------------------------------------------------------
+//смена состояния кнопки и значения флага
+//----------------------------------------------------------------------------------------------------
+void CDialog_Main::ChangeState(bool &state,CColorButton &cColorButton)
+{
+ if (state==true)
+ {
+  state=false;
+  cColorButton.SetBackGroundColor(RGB(192,192,192));
+ }
+ else
+ {
+  state=true;
+  cColorButton.SetBackGroundColor(RGB(128,255,128));
+ }
+}
+
+//----------------------------------------------------------------------------------------------------
+//задать состояние кнопки и флага
+//----------------------------------------------------------------------------------------------------
+void CDialog_Main::SetState(bool &state,CColorButton &cColorButton,bool set_state)
+{
+ state=set_state; 
+ if (state==false) cColorButton.SetBackGroundColor(RGB(192,192,192));
+              else cColorButton.SetBackGroundColor(RGB(128,255,128));
 }
 
 //---------------------------------------------------------------------------
@@ -583,23 +606,23 @@ bool CDialog_Main::GetTemperature(unsigned short raw14,double &value)
 //---------------------------------------------------------------------------
 void CDialog_Main::SaveColorImage(void)
 {
- CreateDirectory("Image",NULL);
+ MakeDirectory("./Image");
  //считываем дату и время
  time_t time_main=time(NULL);
  tm *tm_main=localtime(&time_main);
  //ищем свободный файл
- char filename[1024];
- for(long index=1;index<1000;index++)	
+ char filename[PATH_STRING_BUFFER_SIZE];
+ for(long index=1;index<1000;index++)
  {
-  sprintf(filename,"Image\\img[%04i.%02i.%02i %02i_%02i_%02i-%03ld].tga",tm_main->tm_year+1900,tm_main->tm_mon+1,tm_main->tm_mday,tm_main->tm_hour,tm_main->tm_min,tm_main->tm_sec,index);
+  sprintf(filename,"./Image/img[%04i.%02i.%02i %02i_%02i_%02i-%03ld].tga",tm_main->tm_year+1900,tm_main->tm_mon+1,tm_main->tm_mday,tm_main->tm_hour,tm_main->tm_min,tm_main->tm_sec,index);
   FILE *file=fopen(filename,"rb");
   if (file==NULL)//такого файла ещё нет
   {
-   if (SaveImageNoScale==false) SaveTGA(filename,IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT,reinterpret_cast<unsigned char*>(SaveViewImagePtr));
-                           else SaveTGA(filename,IMAGE_WIDTH,IMAGE_HEIGHT,reinterpret_cast<unsigned char*>(ColorImagePtr));
+   if (SaveImageNoScale==false) SaveTGA(filename,IMAGE_VIEW_WIDTH,IMAGE_VIEW_HEIGHT,reinterpret_cast<uint8_t*>(&SaveViewImage[0]));
+                           else SaveTGA(filename,CFlirOneReceiver::IMAGE_WIDTH,CFlirOneReceiver::IMAGE_HEIGHT,reinterpret_cast<uint8_t*>(&ColorImage[0]));
    break;
   }
-  else fclose(file);     
+  else fclose(file);
  }
 }
 
@@ -608,22 +631,25 @@ void CDialog_Main::SaveColorImage(void)
 //---------------------------------------------------------------------------
 void CDialog_Main::SaveVideoImage(void)
 {
- CreateDirectory("Image",NULL);
+ static const int32_t MIN_FILE_INDEX=1;//минимальный индекс файла для одинакового имени
+ static const int32_t MAX_FILE_INDEX=100;//максимальный индекс файла для одинакового имени
+
+ MakeDirectory("./Image");
  //считываем дату и время
  time_t time_main=time(NULL);
  tm *tm_main=localtime(&time_main);
  //ищем свободный файл
- char filename[1024];
- for(long index=1;index<1000;index++)	
+ char filename[PATH_STRING_BUFFER_SIZE];
+ for(int32_t index=MIN_FILE_INDEX;index<MAX_FILE_INDEX;index++)
  {
-  sprintf(filename,"Image\\frame[%04i.%02i.%02i %02i_%02i_%02i-%03ld].tga",tm_main->tm_year+1900,tm_main->tm_mon+1,tm_main->tm_mday,tm_main->tm_hour,tm_main->tm_min,tm_main->tm_sec,index);
+  sprintf(filename,"./Image/frame[%04i.%02i.%02i %02i_%02i_%02i-%03ld].tga",tm_main->tm_year+1900,tm_main->tm_mon+1,tm_main->tm_mday,tm_main->tm_hour,tm_main->tm_min,tm_main->tm_sec,index);
   FILE *file=fopen(filename,"rb");
   if (file==NULL)//такого файла ещё нет
   {
-   SaveTGA(filename,VIDEO_WIDTH,VIDEO_HEIGHT,reinterpret_cast<unsigned char*>(VideoImagePtr));
+   SaveTGA(filename,CFlirOneReceiver::VIDEO_WIDTH,CFlirOneReceiver::VIDEO_HEIGHT,reinterpret_cast<uint8_t*>(&VideoImage[0]));
    break;
   }
-  else fclose(file);     
+  else fclose(file);
  }
 }
 
@@ -632,15 +658,18 @@ void CDialog_Main::SaveVideoImage(void)
 //---------------------------------------------------------------------------
 void CDialog_Main::SaveThermalImage(void)
 {
- CreateDirectory("Image",NULL);
+static const int32_t MIN_FILE_INDEX=1;//минимальный индекс файла для одинакового имени
+ static const int32_t MAX_FILE_INDEX=100;//максимальный индекс файла для одинакового имени
+
+ MakeDirectory("./Image");
  //считываем дату и время
  time_t time_main=time(NULL);
  tm *tm_main=localtime(&time_main);
  //ищем свободный файл
- char filename[1024];
- for(long index=1;index<1000;index++)	
+ char filename[PATH_STRING_BUFFER_SIZE];
+ for(int32_t index=MIN_FILE_INDEX;index<MAX_FILE_INDEX;index++)
  {
-  sprintf(filename,"Image\\img[%04i.%02i.%02i %02i_%02i_%02i-%03ld].raw",tm_main->tm_year+1900,tm_main->tm_mon+1,tm_main->tm_mday,tm_main->tm_hour,tm_main->tm_min,tm_main->tm_sec,index);
+  sprintf(filename,"./Image/img[%04i.%02i.%02i %02i_%02i_%02i-%03ld].raw",tm_main->tm_year+1900,tm_main->tm_mon+1,tm_main->tm_mday,tm_main->tm_hour,tm_main->tm_min,tm_main->tm_sec,index);
   FILE *file=fopen(filename,"rb");
   if (file==NULL)//такого файла ещё нет
   {
@@ -648,8 +677,8 @@ void CDialog_Main::SaveThermalImage(void)
    #pragma pack(1)
    struct SHeader
    {
-    unsigned long Width;//ширина
-	unsigned long Height;//высота
+    uint32_t Width;//ширина
+    uint32_t Height;//высота
     //параметры для расчёта температуры
     double PlanckR1;
     double PlanckB;
@@ -660,8 +689,8 @@ void CDialog_Main::SaveThermalImage(void)
     double Emissivity;//коэффициент излучения
    } sHeader;
    #pragma pack()
-   sHeader.Width=IMAGE_WIDTH;
-   sHeader.Height=IMAGE_HEIGHT;
+   sHeader.Width=CFlirOneReceiver::IMAGE_WIDTH;
+   sHeader.Height=CFlirOneReceiver::IMAGE_HEIGHT;
    sHeader.PlanckR1=PlanckR1;
    sHeader.PlanckB=PlanckB;
    sHeader.PlanckF=PlanckF;
@@ -671,11 +700,11 @@ void CDialog_Main::SaveThermalImage(void)
    sHeader.Emissivity=Emissivity;
    fwrite(&sHeader,1,sizeof(SHeader),file);//записываем заголовок
    //записываем данные
-   fwrite(ThermalImagePtr,THERMAL_IMAGE_SIZE_SHORT,sizeof(unsigned short),file);
-   fclose(file);  	
+   fwrite(&ThermalImage[0],ThermalImage.size(),sizeof(uint16_t),file);
+   fclose(file);
    break;
   }
-  else fclose(file);     
+  else fclose(file);
  }
 }
 

@@ -1,5 +1,5 @@
 //{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
+// Microsoft Visual C++ generated include file.
 // Used by Resource.rc
 //
 #define IDD_DIALOG_MAIN                 100
@@ -17,6 +17,9 @@
 #define IDC_BUTTON_MAIN_SAVE_RAW        2011
 #define IDC_BUTTON_MAIN_SAVE_VIDEO      2012
 #define IDC_BUTTON_MAIN_SHOW_VIDEO      2013
+#define IDC_EDIT_MAIN_MIN_T             2014
+#define IDC_EDIT_MAIN_MAX_T             2015
+#define IDC_CHECK_MAIN_ALARM_SAVE_FRAME 2016
 
 // Next default values for new objects
 // 
@@ -24,7 +27,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        101
 #define _APS_NEXT_COMMAND_VALUE         1000
-#define _APS_NEXT_CONTROL_VALUE         2014
+#define _APS_NEXT_CONTROL_VALUE         2017
 #define _APS_NEXT_SYMED_VALUE           3000
 #endif
 #endif

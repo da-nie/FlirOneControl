@@ -1,63 +1,72 @@
+//====================================================================================================
+//подключаемые библиотеки
+//====================================================================================================
 #include "tga.h"
+#include "craiifilein.h"
+#include "craiifileout.h"
 
-unsigned char *LoadTGAFromFile(char *FileName,long &Width,long &Height)
+#include <string.h>
+
+//====================================================================================================
+//глобальные переменные
+//====================================================================================================
+static const uint32_t TGA_IMAGE_TYPE_NO_IMAGE=0;
+static const uint32_t TGA_IMAGE_TYPE_PALETTE=1;
+static const uint32_t TGA_IMAGE_TYPE_RGB=2;
+static const uint32_t TGA_IMAGE_TYPE_GRAYSCALE=3;
+static const uint32_t TGA_IMAGE_TYPE_MASK=(1<<2)|(1<<1)|(1<<0);
+static const uint32_t TGA_IMAGE_TYPE_RLE_MASK=(1<<3);
+
+static const uint32_t TGA_DESCRIPTOR_FORWARD=32;
+static const uint32_t TGA_DESCRIPTOR_REVERSE=8;
+
+static const uint32_t TGA_COLOR_MAP_NO_PALETTE=0;
+static const uint32_t TGA_COLOR_MAP_PALETTE=1;
+
+//====================================================================================================
+//функции
+//====================================================================================================
+
+//----------------------------------------------------------------------------------------------------
+//получение изображения
+//----------------------------------------------------------------------------------------------------
+static uint8_t *GetTGAImage(uint8_t *data_ptr,uint32_t length,int32_t &width,int32_t &height)
 {
  //пробуем считать изображение
  STGAHeader sTGAHeader;
- FILE *file;
- file=fopen(FileName,"rb");//открываем файл
- if (file==NULL) return(NULL);//ошибка
  //читаем заголовок
- if (fread(&sTGAHeader,sizeof(STGAHeader),1,file)<=0)//ошибка - мало данных
- {
-  fclose(file);
-  return(NULL);
- } 
+ if (length<sizeof(STGAHeader)) return(NULL);//ошибка - мало данных
+ memcpy(&sTGAHeader,data_ptr,sizeof(STGAHeader));
  //проверяем на возможность чтения
- if (sTGAHeader.imageType&8)
- {
-  fclose(file);
-  return(NULL);//RLE не поддерживаем
- }
- if ((sTGAHeader.imageType&7)==0 || (sTGAHeader.imageType&7)==3)
- {
-  fclose(file);
-  return(NULL);//градации серого и отсутствие изображения не поддерживаем
- }
+ if (sTGAHeader.imageType&TGA_IMAGE_TYPE_RLE_MASK) return(NULL);//RLE не поддерживаем
+ if ((sTGAHeader.imageType&TGA_IMAGE_TYPE_MASK)==TGA_IMAGE_TYPE_NO_IMAGE || (sTGAHeader.imageType&TGA_IMAGE_TYPE_MASK)==TGA_IMAGE_TYPE_GRAYSCALE) return(NULL);//градации серого и отсутствие изображения не поддерживаем
  //задаём параметры изображения
- Width=sTGAHeader.width;
- Height=sTGAHeader.height;
- long LineLength=sTGAHeader.width*4;
+ width=sTGAHeader.width;
+ height=sTGAHeader.height;
+ int32_t line_length=sTGAHeader.width*sizeof(uint32_t);
  //выделяем память для изображения
- long image_length=sTGAHeader.width*sTGAHeader.height*sTGAHeader.bits/8;
- unsigned char *i_buffer=new unsigned char[image_length];
+ int32_t image_length=sTGAHeader.width*sTGAHeader.height*sTGAHeader.bits/8;
  //считываем изображение
- fseek(file,sizeof(struct STGAHeader)+sTGAHeader.colorMapStart+sTGAHeader.colorMapLength*sTGAHeader.colorMapBits/8,SEEK_SET);
- if (fread(i_buffer,image_length,1,file)<=0)
- {
-  fclose(file);
-  delete[](i_buffer);
-  return(NULL);
- }
+ uint32_t image_offset=sizeof(struct STGAHeader)+sTGAHeader.colorMapStart+sTGAHeader.colorMapLength*sTGAHeader.colorMapBits/8+sTGAHeader.identsize;
+ if (image_offset+image_length>length) return(NULL);//недостаточно данных
  //а теперь анализируем формат
  if (sTGAHeader.bits==24)//BGR - модицифируем для четвёрок байт
  {
-  fclose(file);
-  unsigned char *out_image=new unsigned char[sTGAHeader.width*sTGAHeader.height*4];
-  long y,x;
-  if (sTGAHeader.descriptor==32)//прямой формат
+  uint8_t *out_image=new uint8_t[sTGAHeader.width*sTGAHeader.height*sizeof(uint32_t)];
+  int32_t y,x;
+  if (sTGAHeader.descriptor==TGA_DESCRIPTOR_FORWARD)//прямой формат
   {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer;
+   uint8_t *oi_ptr=out_image;
+   uint8_t *i_ptr=data_ptr+image_offset;
    for(y=0;y<sTGAHeader.height;y++,i_ptr+=sTGAHeader.width*3)
    {
-    unsigned char *i_ptrc=i_ptr;
+    uint8_t *i_ptrc=i_ptr;
     for(x=0;x<sTGAHeader.width;x++)
     {
-     unsigned char b=*(i_ptrc);i_ptrc++;
-     unsigned char g=*(i_ptrc);i_ptrc++;
-     unsigned char r=*(i_ptrc);i_ptrc++;
-     unsigned char a=1;
+     uint8_t b=*(i_ptrc);i_ptrc++;
+     uint8_t g=*(i_ptrc);i_ptrc++;
+     uint8_t r=*(i_ptrc);i_ptrc++;
+     uint8_t a=0xff;
      *oi_ptr=b;oi_ptr++;
      *oi_ptr=g;oi_ptr++;
      *oi_ptr=r;oi_ptr++;
@@ -65,19 +74,19 @@ unsigned char *LoadTGAFromFile(char *FileName,long &Width,long &Height)
     }
    }
   }
-  if (sTGAHeader.descriptor==8)//обратный формат
+  if (sTGAHeader.descriptor==TGA_DESCRIPTOR_REVERSE)//обратный формат
   {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer+sTGAHeader.width*sTGAHeader.height*3-1;
+   uint8_t *oi_ptr=out_image;
+   uint8_t *i_ptr=data_ptr+image_offset+sTGAHeader.width*sTGAHeader.height*3-1;
    for(y=sTGAHeader.height-1;y>=0;y--,i_ptr-=sTGAHeader.width*3)
    {
-    unsigned char *i_ptrc=i_ptr;
+    uint8_t *i_ptrc=i_ptr;
     for(x=0;x<sTGAHeader.width;x++)
     {
-     unsigned char b=*(i_ptrc);i_ptrc++;
-     unsigned char g=*(i_ptrc);i_ptrc++;
-     unsigned char r=*(i_ptrc);i_ptrc++;
-     unsigned char a=1;
+     uint8_t b=*(i_ptrc);i_ptrc++;
+     uint8_t g=*(i_ptrc);i_ptrc++;
+     uint8_t r=*(i_ptrc);i_ptrc++;
+     uint8_t a=0xff;
      *oi_ptr=b;oi_ptr++;
      *oi_ptr=g;oi_ptr++;
      *oi_ptr=r;oi_ptr++;
@@ -85,38 +94,78 @@ unsigned char *LoadTGAFromFile(char *FileName,long &Width,long &Height)
     }
    }
   }
-  delete[](i_buffer);
   return(out_image);
  }
- if (sTGAHeader.colorMapType==1 && sTGAHeader.colorMapBits/8==3)//есть палитра по 24 бита
+
+ if (sTGAHeader.bits==32)//BGR - модицифируем для четвёрок байт
  {
-  fseek(file,sTGAHeader.colorMapStart+sizeof(struct STGAHeader),SEEK_SET);
-  //читаем палитру
-  unsigned char *color_map=new unsigned char[sTGAHeader.colorMapLength*3];
-  if (fread(color_map,sTGAHeader.colorMapLength*3,1,file)<=0)
+  uint8_t *out_image=new uint8_t[sTGAHeader.width*sTGAHeader.height*sizeof(uint32_t)];
+  int32_t y,x;
+  if (sTGAHeader.descriptor==TGA_DESCRIPTOR_FORWARD)//прямой формат
   {
-   fclose(file);
-   delete[](color_map);
-   delete[](i_buffer);
-   return(NULL);
+   uint8_t *oi_ptr=out_image;
+   uint8_t *i_ptr=data_ptr+image_offset;
+   for(y=0;y<sTGAHeader.height;y++,i_ptr+=sTGAHeader.width*sizeof(uint32_t))
+   {
+    uint8_t *i_ptrc=i_ptr;
+    for(x=0;x<sTGAHeader.width;x++)
+    {
+     uint8_t b=*(i_ptrc);i_ptrc++;
+     uint8_t g=*(i_ptrc);i_ptrc++;
+     uint8_t r=*(i_ptrc);i_ptrc++;
+     uint8_t a=*(i_ptrc);i_ptrc++;
+     *oi_ptr=b;oi_ptr++;
+     *oi_ptr=g;oi_ptr++;
+     *oi_ptr=r;oi_ptr++;
+     *oi_ptr=a;oi_ptr++;
+    }
+   }
   }
-  //нам потребуется изменить формат
-  unsigned char *out_image=new unsigned char[sTGAHeader.width*sTGAHeader.height*4];
-  long y,x;
-  if (sTGAHeader.descriptor==32)//прямой формат
+  if (sTGAHeader.descriptor==TGA_DESCRIPTOR_REVERSE)//обратный формат
   {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer;
+   uint8_t *oi_ptr=out_image;
+   uint8_t *i_ptr=data_ptr+image_offset+sTGAHeader.width*sTGAHeader.height*3-1;
+   for(y=sTGAHeader.height-1;y>=0;y--,i_ptr-=sTGAHeader.width*sizeof(uint32_t))
+   {
+    uint8_t *i_ptrc=i_ptr;
+    for(x=0;x<sTGAHeader.width;x++)
+    {
+     uint8_t b=*(i_ptrc);i_ptrc++;
+     uint8_t g=*(i_ptrc);i_ptrc++;
+     uint8_t r=*(i_ptrc);i_ptrc++;
+     uint8_t a=*(i_ptrc);i_ptrc++;
+     *oi_ptr=b;oi_ptr++;
+     *oi_ptr=g;oi_ptr++;
+     *oi_ptr=r;oi_ptr++;
+     *oi_ptr=a;oi_ptr++;
+    }
+   }
+  }
+  return(out_image);
+ }
+
+ if (sTGAHeader.colorMapType==TGA_COLOR_MAP_PALETTE && sTGAHeader.colorMapBits/8==3)//есть палитра по 24 бита (другую палитру не поддерживаем)
+ {
+  uint32_t palette_offset=sizeof(STGAHeader)+sTGAHeader.colorMapStart+sTGAHeader.identsize;
+  if (palette_offset+sTGAHeader.colorMapLength*3>length) return(NULL);//не хватает данных
+  uint8_t *color_map=data_ptr+palette_offset;
+  //нам потребуется изменить формат
+  uint8_t *out_image=new uint8_t[sTGAHeader.width*sTGAHeader.height*sizeof(uint32_t)];
+  int32_t y,x;
+  if (sTGAHeader.descriptor==TGA_DESCRIPTOR_FORWARD)//прямой формат
+  {
+   uint8_t *oi_ptr=out_image;
+   uint8_t *i_ptr=data_ptr+image_offset;
    for(y=0;y<sTGAHeader.height;y++,i_ptr+=sTGAHeader.width)
    {
-    unsigned char *i_ptrc=i_ptr;
+    uint8_t *i_ptrc=i_ptr;
     for(x=0;x<sTGAHeader.width;x++,i_ptrc++)
     {
-     long index=(*i_ptrc)*3;
-     unsigned char b=color_map[index];
-     unsigned char g=color_map[index+1];
-     unsigned char r=color_map[index+2];
-     unsigned char a=1;
+     int32_t index=(*i_ptrc)*3;
+     uint8_t b=color_map[index];
+     uint8_t g=color_map[index+1];
+     uint8_t r=color_map[index+2];
+     uint8_t a=0xff;
      *oi_ptr=b;oi_ptr++;
      *oi_ptr=g;oi_ptr++;
      *oi_ptr=r;oi_ptr++;
@@ -124,20 +173,20 @@ unsigned char *LoadTGAFromFile(char *FileName,long &Width,long &Height)
     }
    }
   }
-  if (sTGAHeader.descriptor==8)//формат перевёрнутый
+  if (sTGAHeader.descriptor==TGA_DESCRIPTOR_REVERSE)//формат перевёрнутый
   {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer+sTGAHeader.width*(sTGAHeader.height-1);
+   uint8_t *oi_ptr=out_image;
+   uint8_t *i_ptr=data_ptr+image_offset+sTGAHeader.width*(sTGAHeader.height-1);
    for(y=sTGAHeader.height-1;y>=0;y--,i_ptr-=sTGAHeader.width)
    {
-    unsigned char *i_ptrc=i_ptr;
+    uint8_t *i_ptrc=i_ptr;
     for(x=0;x<sTGAHeader.width;x++,i_ptrc++)
     {
-     long index=(*i_ptrc)*3;
-     unsigned char b=color_map[index];
-     unsigned char g=color_map[index+1];
-     unsigned char r=color_map[index+2];
-     unsigned char a=1;
+     int32_t index=(*i_ptrc)*3;
+     uint8_t b=color_map[index];
+     uint8_t g=color_map[index+1];
+     uint8_t r=color_map[index+2];
+     uint8_t a=0xff;
      *oi_ptr=b;oi_ptr++;
      *oi_ptr=g;oi_ptr++;
      *oi_ptr=r;oi_ptr++;
@@ -145,177 +194,41 @@ unsigned char *LoadTGAFromFile(char *FileName,long &Width,long &Height)
     }
    }
   }
-  fclose(file);
-  delete[](i_buffer);
-  delete[](color_map);
-  return(out_image);  
- }
-  //иные режимы не поддерживаем
- fclose(file);
- delete[](i_buffer);
- return(NULL);
-}
-unsigned char *LoadTGAFromResource(HMODULE hModule,long ID,long &Width,long &Height)
-{
- HRSRC hRSRC=FindResource(hModule,(LPSTR)ID,RT_RCDATA);
- if (hRSRC==NULL) return(NULL);
- HGLOBAL hGlobal=LoadResource(hModule,hRSRC);
- if (hGlobal==NULL) return(NULL);
- unsigned char *Data=(unsigned char*)LockResource(hGlobal);
- long DataSize=SizeofResource(hModule,hRSRC);
- //а теперь считываем данные
- if (DataSize<sizeof(STGAHeader))//файл короткий
- {
-  GlobalUnlock(hGlobal);
-  return(NULL);
- }
- STGAHeader *sTGAHeader;
- //читаем заголовок
- sTGAHeader=(STGAHeader*)Data;
- //проверяем на возможность чтения
- if (sTGAHeader->imageType&8)
- {
-  GlobalUnlock(hGlobal);
-  return(NULL);//RLE не поддерживаем
- }
- if (sTGAHeader->imageType&7==0 || sTGAHeader->imageType&7==3)
- {
-  GlobalUnlock(hGlobal);
-  return(NULL);//градации серого и отсутствие изображения не поддерживаем
- }
- //задаём параметры изображения
- Width=sTGAHeader->width;
- Height=sTGAHeader->height;
- long LineLength=sTGAHeader->width*4;
- //выделяем память для изображения
- long image_length=sTGAHeader->width*sTGAHeader->height*sTGAHeader->bits/8;
- unsigned char *i_buffer=new unsigned char[image_length];
- //считываем изображение
- long offset=sizeof(STGAHeader)+sTGAHeader->colorMapStart+sTGAHeader->colorMapLength*sTGAHeader->colorMapBits/8;
- if (offset+image_length>DataSize)//файл короткий
- {
-  GlobalUnlock(hGlobal);
-  delete[](i_buffer);
-  return(NULL);
- }
- memcpy(i_buffer,Data+offset,image_length);//копируем данные
- //а теперь анализируем формат
- if (sTGAHeader->bits==24)//BGR - модицифируем для четвёрок байт
- {
-  GlobalUnlock(hGlobal);
-  unsigned char *out_image=new unsigned char[sTGAHeader->width*sTGAHeader->height*4];
-  long y,x;
-  if (sTGAHeader->descriptor==32)//прямой формат
-  {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer;
-   for(y=0;y<sTGAHeader->height;y++,i_ptr+=sTGAHeader->width*3)
-   {
-    unsigned char *i_ptrc=i_ptr;
-    for(x=0;x<sTGAHeader->width;x++)
-    {
-     unsigned char b=*(i_ptrc);i_ptrc++;
-     unsigned char g=*(i_ptrc);i_ptrc++;
-     unsigned char r=*(i_ptrc);i_ptrc++;
-     unsigned char a=1;
-     *oi_ptr=b;oi_ptr++;
-     *oi_ptr=g;oi_ptr++;
-     *oi_ptr=r;oi_ptr++;
-     *oi_ptr=a;oi_ptr++;
-    }
-   }
-  }
-  if (sTGAHeader->descriptor==8)//обратный формат
-  {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer+sTGAHeader->width*sTGAHeader->height*3-1;
-   for(y=sTGAHeader->height-1;y>=0;y--,i_ptr-=sTGAHeader->width*3)
-   {
-    unsigned char *i_ptrc=i_ptr;
-    for(x=0;x<sTGAHeader->width;x++)
-    {
-     unsigned char b=*(i_ptrc);i_ptrc++;
-     unsigned char g=*(i_ptrc);i_ptrc++;
-     unsigned char r=*(i_ptrc);i_ptrc++;
-     unsigned char a=1;
-     *oi_ptr=b;oi_ptr++;
-     *oi_ptr=g;oi_ptr++;
-     *oi_ptr=r;oi_ptr++;
-     *oi_ptr=a;oi_ptr++;
-    }
-   }
-  }
-  delete[](i_buffer);
-  return(out_image);  
- }
-
- if (sTGAHeader->colorMapType==1 && sTGAHeader->colorMapBits/8==3)//есть палитра по 24 бита
- {
-  long offset=sTGAHeader->colorMapStart+sizeof(STGAHeader);
-  if (offset+sTGAHeader->colorMapLength*3>DataSize)
-  {
-   GlobalUnlock(hGlobal);
-   delete[](i_buffer);
-   return(NULL);
-  }
-  unsigned char *color_map=Data+offset;   
-  //нам потребуется изменить формат
-  unsigned char *out_image=new unsigned char[sTGAHeader->width*sTGAHeader->height*4];
-  long y,x;
-  if (sTGAHeader->descriptor==32)//прямой формат
-  {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer;
-   for(y=0;y<sTGAHeader->height;y++,i_ptr+=sTGAHeader->width)
-   {
-    unsigned char *i_ptrc=i_ptr;
-    for(x=0;x<sTGAHeader->width;x++,i_ptrc++)
-    {
-     long index=(*i_ptrc)*3;
-     unsigned char b=color_map[index];
-     unsigned char g=color_map[index+1];
-     unsigned char r=color_map[index+2];
-     unsigned char a=1;
-     *oi_ptr=b;oi_ptr++;
-     *oi_ptr=g;oi_ptr++;
-     *oi_ptr=r;oi_ptr++;
-     *oi_ptr=a;oi_ptr++;
-    }
-   }
-  }
-  if (sTGAHeader->descriptor==8)//формат перевёрнутый
-  {
-   unsigned char *oi_ptr=out_image;
-   unsigned char *i_ptr=i_buffer+sTGAHeader->width*(sTGAHeader->height-1);
-   for(y=sTGAHeader->height-1;y>=0;y--,i_ptr-=sTGAHeader->width)
-   {
-    unsigned char *i_ptrc=i_ptr;
-    for(x=0;x<sTGAHeader->width;x++,i_ptrc++)
-    {
-     long index=(*i_ptrc)*3;
-     unsigned char b=color_map[index];
-     unsigned char g=color_map[index+1];
-     unsigned char r=color_map[index+2];
-     unsigned char a=1;
-     *oi_ptr=b;oi_ptr++;
-     *oi_ptr=g;oi_ptr++;
-     *oi_ptr=r;oi_ptr++;
-     *oi_ptr=a;oi_ptr++;
-    }
-   }
-  }
-  GlobalUnlock(hGlobal);
-  delete[](i_buffer);
-  delete[](color_map);
-  return(out_image);  
+  return(out_image);
  }
  //иные режимы не поддерживаем
- delete[](i_buffer);
- GlobalUnlock(hGlobal);
- return(NULL); 
+ return(NULL);
 }
 
-bool SaveTGA(char *FileName,long Width,long Height,unsigned char *Image)
+
+//----------------------------------------------------------------------------------------------------
+//загрузить tga-файл
+//----------------------------------------------------------------------------------------------------
+uint8_t *LoadTGAFromFile(const char *file_name,int32_t &width,int32_t &height)
+{
+ CRAIIFileIn cRAIIFileIn(file_name,std::ios_base::in|std::ios_base::binary);
+ {
+  if (cRAIIFileIn.IsOpened()==false) return(NULL);
+  //узнаем размер файла
+  cRAIIFileIn.GetHandle().seekg(0,std::ios_base::end);
+  uint32_t file_size=static_cast<uint32_t>(cRAIIFileIn.GetHandle().tellg());
+  cRAIIFileIn.GetHandle().seekg(0,std::ios_base::beg);
+  //читаем файл
+  uint8_t *data_ptr=new uint8_t[file_size+1];
+  if (cRAIIFileIn.GetHandle().read(reinterpret_cast<char*>(data_ptr),sizeof(uint8_t)*file_size).fail()==false)
+  {
+   uint8_t *ret=GetTGAImage(data_ptr,file_size,width,height);
+   delete[](data_ptr);
+   return(ret);
+  }
+  delete[](data_ptr);
+ }
+ return(NULL);
+}
+//----------------------------------------------------------------------------------------------------
+//сохранить картинку в tga-файл
+//----------------------------------------------------------------------------------------------------
+bool SaveTGA(const char *file_name,int32_t width,int32_t height,uint8_t *image)
 {
  struct STGAHeader sTGAHeader;
  sTGAHeader.identsize=0;
@@ -326,25 +239,13 @@ bool SaveTGA(char *FileName,long Width,long Height,unsigned char *Image)
  sTGAHeader.colorMapBits=24;
  sTGAHeader.xstart=0;
  sTGAHeader.ystart=0;
- sTGAHeader.width=static_cast<unsigned short>(Width);
- sTGAHeader.height=static_cast<unsigned short>(Height);
+ sTGAHeader.width=static_cast<uint16_t>(width);
+ sTGAHeader.height=static_cast<uint16_t>(height);
  sTGAHeader.bits=32;
  sTGAHeader.descriptor=32;
- FILE *file=fopen(FileName,"wb");
- if (file==NULL) return(false);//ошибка создания файла
- //сохраняем заголовок
- if (fwrite(&sTGAHeader,1,sizeof(struct STGAHeader),file)<sizeof(struct STGAHeader))//ошибка записи
- {
-  fclose(file);
-  return(false);
- }
- //сохраняем в файл
- if (fwrite(Image,1,Width*Height*4,file)<(unsigned int)(Width*Height*4))//ошибка записи
- {
-  fclose(file);
-  return(false);
- }
- //закрываем файл
- fclose(file);
+ CRAIIFileOut cRAIIFileOut(file_name,std::ios_base::out|std::ios_base::binary);
+ if (cRAIIFileOut.IsOpened()==false) return(false);
+ if (cRAIIFileOut.GetHandle().write(reinterpret_cast<char*>(&sTGAHeader),sizeof(STGAHeader)).fail()==true) return(false);
+ if (cRAIIFileOut.GetHandle().write(reinterpret_cast<char*>(image),sizeof(uint8_t)*width*height*4).fail()==true) return(false);
  return(true);
 }
