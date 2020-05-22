@@ -32,24 +32,9 @@ CWinApp_Main::~CWinApp_Main()
 //-Замещённые функции предка-------------------------------------------------
 BOOL CWinApp_Main::InitInstance(void)
 { 
- //переменные для инициализации GDIPlus
- GdiplusStartupInput GDIPlusInput;
- GdiplusStartupOutput GDIPlusOutput;
- ULONG GDIPlusToken=0;
-
- //подключаемся к GDI+
- if (GdiplusStartup(&GDIPlusToken,&GDIPlusInput,&GDIPlusOutput)!=Gdiplus::Ok)
- {
-  MessageBox(NULL,"Ошибка инициализации GDI+.","Ошибка",MB_OK);
-  return(FALSE);
- }
-
  CDialog_Main *cDialog_Main_Ptr=new CDialog_Main((LPSTR)IDD_DIALOG_MAIN,NULL);
  cDialog_Main_Ptr->DoModal();
  delete(cDialog_Main_Ptr);
-
- //отключаемся от GDI+
- GdiplusShutdown(GDIPlusToken);
  return(TRUE);
 }
 //-Новые функции класса------------------------------------------------------

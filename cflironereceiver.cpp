@@ -1,4 +1,5 @@
 #include "cflironereceiver.h"
+#include "libjpeg/jpeglib.h"
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //-Конструктор класса---------------------------------------------------------------------------------
@@ -193,48 +194,66 @@ bool CFlirOneReceiver::CreateImage(unsigned char *buffer,unsigned long size)
    }
   }  
   if (ok==true)
-  {   
+  { 
 
    JPGImage.reserve(sHeader.JpgSize);
-   //сохраняем jpg-картинку, для чего создаём поток
-   IStream *pStream=NULL;
-   if (SUCCEEDED(CreateStreamOnHGlobal(NULL,true,&pStream)))
-   {   
-    for(unsigned long n=0;n<sHeader.JpgSize;n++)
-    {    
-     unsigned char b;
-     if (cRingBuffer_Ptr->PopByte(&b)==false) 
-	 {
-	  JPGImage.clear();
-	  ok=false;
-	  break;
-	 }
-     pStream->Write(&b,1,0);//записываем в поток наши данные	   
-	 JPGImage.push_back(b);
-	} 
-	if (ok==true)
+   for(unsigned long n=0;n<sHeader.JpgSize;n++)
+   {    
+    unsigned char b;
+    if (cRingBuffer_Ptr->PopByte(&b)==false) 
 	{
-     //создаём изображение
-     Bitmap bitmap(pStream,0);     
-     //копируем данные изображения в массив   
-     long width=bitmap.GetWidth();
-     long height=bitmap.GetHeight();
+     JPGImage.clear();
+	 ok=false;
+	 break;
+	}
+    JPGImage.push_back(b);
+   } 
+   if (ok==true)
+   {
+    unsigned long jpg_size=sHeader.JpgSize;
+    unsigned char *jpg_buffer=&JPGImage[0];
+    struct jpeg_decompress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+
+    int row_stride, width, height, pixel_size;
+    cinfo.err=jpeg_std_error(&jerr);
+    jpeg_create_decompress(&cinfo);
+    jpeg_mem_src(&cinfo,jpg_buffer,jpg_size);
+    int rc=jpeg_read_header(&cinfo,TRUE);
+    if (rc==1)//данные являются нормальным jpeg-изображением
+    {
+     jpeg_start_decompress(&cinfo);
+     width=cinfo.output_width;
+     height=cinfo.output_height;
+     pixel_size=cinfo.output_components;
+     row_stride=width*pixel_size;
+     int bmp_size=width*height*pixel_size;
+     unsigned char *bmp_buffer=new unsigned char[bmp_size];
+     //читаем изображение
+     while (cinfo.output_scanline<cinfo.output_height)
+     {
+      unsigned char *buffer_array[1];
+      buffer_array[0]=bmp_buffer+(cinfo.output_scanline)*row_stride;
+      jpeg_read_scanlines(&cinfo,buffer_array,1);
+     }
+     jpeg_finish_decompress(&cinfo);
+     jpeg_destroy_decompress(&cinfo);
+     //переносим изображение из буфера
      for(long x=0;x<width;x++)
      {
       for(long y=0;y<height;y++)
-	  { 
-       Color color; 	 
-       bitmap.GetPixel(x,y,&color);
-	   unsigned long offset=(width-1-x)*ORIGINAL_VIDEO_HEIGHT+y;
-	   unsigned long r=color.GetRed();
-	   unsigned long g=color.GetGreen();
-	   unsigned long b=color.GetBlue();
-       VideoImage[offset]=b|(g<<8)|(r<<16)|(0xFF<<24);	 
-	  }
-	 }
-	}
-	pStream->Release();
-   }    
+      {
+       unsigned long bmp_offset=(x+y*width)*3;
+       unsigned long offset=(width-1-x)*ORIGINAL_VIDEO_HEIGHT+y;
+       unsigned long r=bmp_buffer[bmp_offset+0];
+       unsigned long g=bmp_buffer[bmp_offset+1];
+       unsigned long b=bmp_buffer[bmp_offset+2];
+       VideoImage[offset]=b|(g<<8)|(r<<16)|(0xFF<<24);
+      }
+     }
+     delete[](bmp_buffer);
+    }
+   }     
   }
  }
 

@@ -53,7 +53,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
-# ADD LINK32 winmm.lib Setupapi.lib gdiplus.lib /nologo /subsystem:windows /machine:I386
+# ADD LINK32 winmm.lib Setupapi.lib /nologo /subsystem:windows /machine:I386
 
 !ELSEIF  "$(CFG)" == "FlirOneControl - Win32 Debug"
 
@@ -91,6 +91,10 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\ccolorbutton.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\cdecorator_ciimage.cpp
 # End Source File
 # Begin Source File
@@ -100,6 +104,10 @@ SOURCE=.\cdecorator_scale.cpp
 # Begin Source File
 
 SOURCE=.\cdialog_main.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\cdjpeg.c
 # End Source File
 # Begin Source File
 
@@ -123,10 +131,6 @@ SOURCE=.\ciimage.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\colorbutton.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=.\cpicture.cpp
 # End Source File
 # Begin Source File
@@ -135,7 +139,219 @@ SOURCE=.\cringbuffer.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\libjpeg\jaricom.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcapimin.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcapistd.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcarith.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jccoefct.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jccolor.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcdctmgr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jchuff.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcinit.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcmainct.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcmarker.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcmaster.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcomapi.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcparam.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcprepct.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jcsample.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jctrans.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdapimin.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdapistd.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdarith.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdatadst.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdatasrc.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdcoefct.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdcolor.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jddctmgr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdhuff.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdinput.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdmainct.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdmarker.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdmaster.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdmerge.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdpostct.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdsample.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdtrans.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jerror.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jfdctflt.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jfdctfst.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jfdctint.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jidctflt.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jidctfst.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jidctint.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jmemansi.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jmemmgr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jquant1.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jquant2.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jutils.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\Main.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdbmp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdcolmap.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdgif.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdppm.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdrle.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdswitch.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\rdtarga.c
 # End Source File
 # Begin Source File
 
@@ -144,6 +360,30 @@ SOURCE=.\Resource.rc
 # Begin Source File
 
 SOURCE=.\tga.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\transupp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\wrbmp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\wrgif.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\wrppm.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\wrrle.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\wrtarga.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -163,7 +403,15 @@ SOURCE=.\cdecorator_scale.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\libjpeg\cderror.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\cdialog_main.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\cdjpeg.h
 # End Source File
 # Begin Source File
 
@@ -199,6 +447,42 @@ SOURCE=.\cringbuffer.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\libjpeg\jconfig.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jdct.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jerror.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jinclude.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jmemsys.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jmorecfg.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jpegint.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jpeglib.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\jversion.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\resource.h
 # End Source File
 # Begin Source File
@@ -208,6 +492,10 @@ SOURCE=.\stdafx.h
 # Begin Source File
 
 SOURCE=.\tga.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libjpeg\transupp.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"
